@@ -1,19 +1,15 @@
 // src/pages/LandingPage.jsx
-// What this file does: ATLAS hero — 3D house model with cursor parallax + depth text + Blade Runner palette
+// What this file does: ATLAS hero — Background video with cursor parallax + depth text + Twilight / Forest palette
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar      from "../components/Navbar";
-import HeroCanvas  from "../components/HeroCanvas";
-
-const BG_IMAGE = "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=1920&q=95&auto=format&fit=crop";
 
 // ── Mouse tracking hook ───────────────────────────────────────────────────
 // Returns:
-//   nx, ny  — normalised -1 to +1  (fed to 3D model for rotation)
 //   px, py  — pixel offsets         (fed to CSS layers for parallax)
 function useMouseTracking() {
-  const [state, setState] = useState({ nx: 0, ny: 0, px: 0, py: 0 });
+  const [state, setState] = useState({ px: 0, py: 0 });
   const target  = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
   const raf     = useRef(null);
@@ -29,8 +25,6 @@ function useMouseTracking() {
       current.current.x = lerp(current.current.x, target.current.x, 0.06);
       current.current.y = lerp(current.current.y, target.current.y, 0.06);
       setState({
-        nx: current.current.x,
-        ny: current.current.y,
         px: current.current.x * 38,   // pixel offset for parallax layers
         py: current.current.y * 18,
       });
@@ -54,45 +48,50 @@ function getT(px, py, mult) {
 export default function LandingPage() {
   const navigate = useNavigate();
   const mouse    = useMouseTracking();
-  const [modelOk, setModelOk] = useState(true);
-
-  useEffect(() => {
-    fetch("/models/house.glb", { method: "HEAD" })
-      .then((r) => setModelOk(r.ok))
-      .catch(() => setModelOk(false));
-  }, []);
 
   return (
     <div style={{ background: "var(--void)", minHeight: "100vh", overflow: "hidden" }}>
       <Navbar />
 
       {/* ════════════════════════════════════════════
-          HERO — full viewport, 5-layer depth stack
+          HERO — full viewport with video background
           ════════════════════════════════════════════ */}
       <section style={{ position: "relative", height: "100dvh", overflow: "hidden" }}>
 
-        {/* ── LAYER 0: Dark background ── z-index 0 */}
+        {/* ── LAYER 0: Background video (luxury home at dusk) ── */}
         <div
           style={{
-            position:        "absolute",
-            inset:           0,
-            zIndex:          0,
-            backgroundImage: `url(${BG_IMAGE})`,
-            backgroundSize:  "cover",
-            backgroundPosition: "center",
-            filter:          "brightness(0.1) saturate(0.2)",
-            transform:       `${getT(mouse.px, mouse.py, 0.18)} scale(1.06)`,
-            transition:      "transform 0.1s linear",
+            position:   "absolute",
+            inset:      0,
+            zIndex:     0,
+            overflow:   "hidden",
+            transform:  `${getT(mouse.px, mouse.py, 0.1)} scale(1.04)`,
+            transition: "transform 0.1s linear",
           }}
-        />
+        >
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "brightness(0.35) saturate(0.85) contrast(1.1)",
+            }}
+          >
+            <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4" type="video/mp4" />
+          </video>
+        </div>
 
         {/* Subtle vignette overlay */}
         <div style={{
           position: "absolute", inset: 0, zIndex: 1,
-          background: "radial-gradient(ellipse at center, transparent 30%, rgba(4,6,10,0.85) 100%)",
+          background: "radial-gradient(ellipse at center, transparent 30%, rgba(5,8,17,0.85) 100%)",
         }} />
 
-        {/* ── LAYER 10: Text BACK — appears BEHIND the 3D house ── */}
+        {/* ── LAYER 10: Hero Text overlay ── */}
         <div
           style={{
             position:       "absolute",
@@ -102,7 +101,7 @@ export default function LandingPage() {
             flexDirection:  "column",
             alignItems:     "center",
             justifyContent: "center",
-            transform:      getT(mouse.px, mouse.py, 0.15),
+            transform:      getT(mouse.px, mouse.py, 0.14),
             transition:     "transform 0.1s linear",
             pointerEvents:  "none",
             userSelect:     "none",
@@ -123,10 +122,7 @@ export default function LandingPage() {
             FIND WHERE
           </div>
 
-          {/* Space where the 3D house floats */}
-          <div style={{ height: "clamp(200px, 30vw, 420px)" }} />
-
-          {/* LINE 2: "YOU BELONG." — amber, the single colour moment */}
+          {/* LINE 2: "YOU BELONG." ── warm cozy glowing amber */}
           <div style={{
             fontFamily:    "'Bebas Neue', sans-serif",
             fontSize:      "clamp(5rem, 14vw, 13rem)",
@@ -137,73 +133,11 @@ export default function LandingPage() {
             textAlign:     "center",
             animation:     "fadeUp 1s 0.2s cubic-bezier(0.16,1,0.3,1) forwards",
             opacity:       0,
+            marginTop:     "15px",
           }}>
             YOU BELONG.
           </div>
         </div>
-
-        {/* ── LAYER 20: 3D House — center of hero, between the two text lines ── */}
-        {modelOk ? (
-          <HeroCanvas mouseX={mouse.nx} mouseY={mouse.ny} />
-        ) : (
-          <div style={{
-            position: "absolute", top: "50%", left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 20, textAlign: "center", maxWidth: "320px",
-            padding: "20px", border: "1px solid rgba(200,150,60,0.3)",
-            borderRadius: "4px", background: "rgba(4,6,10,0.9)",
-          }}>
-            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "0.75rem", color: "var(--hazegold)", marginBottom: "8px" }}>
-              3D model file missing
-            </p>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: "rgba(240,244,248,0.5)", lineHeight: 1.6 }}>
-              Run <code style={{ color: "var(--hazegold)" }}>npm run download-house</code> in the frontend folder, then refresh.
-            </p>
-          </div>
-        )}
-
-        {/* Orbit ring 1 — decorative, moves slightly counter to cursor */}
-        <div style={{
-          position:     "absolute",
-          top:          "50%", left: "50%",
-          transform:    `translate(-50%, -50%) translate(${mouse.px * -0.28}px, ${mouse.py * -0.28}px)`,
-          width:        "clamp(280px, 40vw, 560px)",
-          height:       "clamp(280px, 40vw, 560px)",
-          borderRadius: "50%",
-          border:       "1px solid rgba(240,244,248,0.055)",
-          animation:    "orbitSpin 28s linear infinite",
-          zIndex:       25,
-          pointerEvents:"none",
-          transition:   "transform 0.1s linear",
-        }} />
-
-        {/* Orbit ring 2 — larger, counter-rotates */}
-        <div style={{
-          position:     "absolute",
-          top:          "50%", left: "50%",
-          transform:    `translate(-50%, -50%) translate(${mouse.px * -0.28}px, ${mouse.py * -0.28}px)`,
-          width:        "clamp(360px, 52vw, 720px)",
-          height:       "clamp(360px, 52vw, 720px)",
-          borderRadius: "50%",
-          border:       "1px solid rgba(200,150,60,0.04)",
-          animation:    "orbitSpin 42s linear infinite reverse",
-          zIndex:       25,
-          pointerEvents:"none",
-          transition:   "transform 0.1s linear",
-        }} />
-
-        {/* ── LAYER 40: Amber horizontal accent line ── */}
-        <div style={{
-          position:   "absolute",
-          left:       0, right: 0,
-          top:        "50%",
-          height:     "1px",
-          background: "linear-gradient(to right, transparent 0%, rgba(200,150,60,0.35) 20%, rgba(200,150,60,0.35) 80%, transparent 100%)",
-          zIndex:     40,
-          transform:  getT(mouse.px, mouse.py, -0.08),
-          transition: "transform 0.1s linear",
-          pointerEvents: "none",
-        }} />
 
         {/* ── LAYER 50: UI — bottom copy + CTA ── */}
         <div
@@ -239,7 +173,7 @@ export default function LandingPage() {
               fontWeight: 300,
               fontSize:   "0.85rem",
               lineHeight: "1.75",
-              color:      "rgba(240,244,248,0.55)",
+              color:      "rgba(248,250,252,0.55)",
             }}>
               Every missed call is a lost deal. ATLAS answers 24/7,
               scores every lead live, and alerts you the moment
@@ -257,12 +191,12 @@ export default function LandingPage() {
               fontWeight: 300,
               fontSize:   "0.85rem",
               lineHeight: "1.75",
-              color:      "rgba(240,244,248,0.55)",
+              color:      "rgba(248,250,252,0.55)",
               maxWidth:   "260px",
               textAlign:  "right",
             }}>
               Browse listings, talk to our AI agent,
-              and experience any property in 3D —
+              and experience properties via cinematic previews —
               before you ever visit.
             </p>
 
@@ -299,35 +233,19 @@ export default function LandingPage() {
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 background:    "transparent",
-                color:         "rgba(240,244,248,0.5)",
-                border:        "1px solid rgba(240,244,248,0.15)",
+                color:         "rgba(248,250,252,0.5)",
+                border:        "1px solid rgba(248,250,252,0.15)",
                 borderRadius:  "2px",
                 padding:       "11px 28px",
                 cursor:        "pointer",
                 transition:    "border-color 0.2s, color 0.2s",
               }}
-              onMouseEnter={e => { e.target.style.borderColor = "rgba(200,150,60,0.5)"; e.target.style.color = "var(--hazegold)"; }}
-              onMouseLeave={e => { e.target.style.borderColor = "rgba(240,244,248,0.15)"; e.target.style.color = "rgba(240,244,248,0.5)"; }}
+              onMouseEnter={e => { e.target.style.borderColor = "rgba(245,158,11,0.5)"; e.target.style.color = "var(--hazegold)"; }}
+              onMouseLeave={e => { e.target.style.borderColor = "rgba(248,250,252,0.15)"; e.target.style.color = "rgba(248,250,252,0.5)"; }}
             >
               Agent Login
             </button>
           </div>
-        </div>
-
-        {/* CC Attribution — required by license */}
-        <div style={{
-          position:   "absolute",
-          bottom:     "14px", left: "50%",
-          transform:  "translateX(-50%)",
-          zIndex:     50,
-          fontFamily: "'Space Grotesk', sans-serif",
-          fontSize:   "10px",
-          letterSpacing: "0.06em",
-          color:      "rgba(240,244,248,0.18)",
-          whiteSpace: "nowrap",
-          pointerEvents: "none",
-        }}>
-          3D Model: "AR House" by Austin Beaulier — CC Attribution
         </div>
 
         {/* Bottom gradient — fades hero into page */}

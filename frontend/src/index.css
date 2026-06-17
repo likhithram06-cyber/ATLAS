@@ -8,29 +8,33 @@
 @import "tailwindcss";
 
 :root {
-  /* Blade Runner 2049 palette — cold, dusty, amber-hazed dark */
-  --void:       #04060A;   /* pure near-black — page background */
-  --deep:       #080C12;   /* slightly lighter near-black */
-  --steel:      #0E1520;   /* dark steel blue-black — card bg */
-  --iron:       #1A2535;   /* medium dark — borders, surfaces */
-  --slate:      #2E3D52;   /* mid tone — dividers */
-  --fog:        #4A5A6E;   /* muted blue-grey */
+  /* Twilight & Luxury Forest theme — cold dusk sky, warm cozy interiors, green forest */
+  --void:       #050811;   /* deep twilight midnight blue */
+  --deep:       #090F1D;   /* deep navy-black */
+  --steel:      #101828;   /* dark slate navy — card bg */
+  --iron:       #1E293B;   /* medium slate — borders, surfaces */
+  --slate:      #334155;   /* slate gray-blue — dividers */
+  --fog:        #64748B;   /* soft muted slate */
 
-  /* Accent — Blade Runner amber haze, used SPARINGLY */
-  --hazegold:   #C8963C;   /* warm amber — single accent only */
-  --hazelight:  #E0B060;   /* brighter amber — hover */
-  --hazedim:    rgba(200, 150, 60, 0.15); /* ghost amber for borders */
+  /* Accent — Cozy glowing amber/gold */
+  --hazegold:   #F59E0B;   /* warm glowing amber */
+  --hazelight:  #FBBF24;   /* bright glow — hover */
+  --hazedim:    rgba(245, 158, 11, 0.15); /* ghost amber for borders */
+
+  /* Forest green tone */
+  --forest:     #10B981;   /* forest emerald green */
+  --forest-dim: rgba(16, 185, 129, 0.15);
 
   /* Text */
-  --white:      #F0F4F8;   /* near-white — primary text */
-  --silver:     #8A9BB0;   /* muted steel — secondary text */
-  --ghost:      #3A4A5E;   /* very muted — tertiary */
+  --white:      #F8FAFC;   /* slate white — primary text */
+  --silver:     #94A3B8;   /* slate silver — secondary text */
+  --ghost:      #334155;   /* dark slate — tertiary */
 
   /* Borders */
-  --border:     rgba(240, 244, 248, 0.08);
-  --border-lit: rgba(240, 244, 248, 0.18);
+  --border:     rgba(248, 250, 252, 0.08);
+  --border-lit: rgba(248, 250, 252, 0.18);
 
-  /* Mapping old semantic variables to Blade Runner 2049 palette */
+  /* Mapping old semantic variables to Twilight & Forest palette */
   --obsidian:       var(--void);
   --char:           var(--deep);
   --ember:          var(--steel);
@@ -43,7 +47,7 @@
   --parchment:      var(--silver);
   --ash:            var(--fog);
   --border-warm:    var(--hazedim);
-  --border-glow:    rgba(200, 150, 60, 0.35);
+  --border-glow:    rgba(245, 158, 11, 0.35);
 
   --bg-page:        var(--void);
   --bg-card:        var(--deep);
@@ -54,13 +58,13 @@
   --text-muted:     var(--fog);
   --accent:         var(--hazegold);
   --accent-light:   var(--hazelight);
-  --accent-dark:    #8B6A30;
+  --accent-dark:    #B45309;
   --border-hover:   var(--border-glow);
 
   /* === GLASSMORPHISM === */
-  --glass-bg:       rgba(8, 12, 18, 0.6);
-  --glass-border:   rgba(200, 150, 60, 0.2);
-  --glass-blur:     blur(12px);
+  --glass-bg:       rgba(9, 15, 29, 0.65);
+  --glass-border:   rgba(245, 158, 11, 0.2);
+  --glass-blur:     blur(16px);
 
   /* Aliases to prevent breaking existing code that uses previous names */
   --base:           var(--bg-card);
@@ -77,33 +81,34 @@
 }
 
 @theme {
-  --color-void:       #04060A;
-  --color-deep:       #080C12;
-  --color-steel:      #0E1520;
-  --color-iron:       #1A2535;
-  --color-slate:      #2E3D52;
-  --color-fog:        #4A5A6E;
-  --color-hazegold:   #C8963C;
-  --color-hazelight:  #E0B060;
+  --color-void:       #050811;
+  --color-deep:       #090F1D;
+  --color-steel:      #101828;
+  --color-iron:       #1E293B;
+  --color-slate:      #334155;
+  --color-fog:        #64748B;
+  --color-hazegold:   #F59E0B;
+  --color-hazelight:  #FBBF24;
+  --color-forest:     #10B981;
 
-  --color-obsidian:       #04060A;
-  --color-char:           #080C12;
-  --color-ember:          #0E1520;
-  --color-ember-hover:    #1A2535;
-  --color-bronze:         #C8963C;
-  --color-amber:          #C8963C;
-  --color-gold:           #E0B060;
-  --color-sand:           #8A9BB0;
-  --color-cream:          #F0F4F8;
-  --color-parchment:      #8A9BB0;
-  --color-ash:            #4A5A6E;
+  --color-obsidian:       #050811;
+  --color-char:           #090F1D;
+  --color-ember:          #101828;
+  --color-ember-hover:    #1E293B;
+  --color-bronze:         #F59E0B;
+  --color-amber:          #F59E0B;
+  --color-gold:           #FBBF24;
+  --color-sand:           #94A3B8;
+  --color-cream:          #F8FAFC;
+  --color-parchment:      #94A3B8;
+  --color-ash:            #64748B;
 
   /* Aliases for old colors to prevent Tailwind build breaking */
-  --color-pale:           #F0F4F8;
-  --color-muted:          #4A5A6E;
-  --color-rose:           #C8963C;
-  --color-wine:           #0E1520;
-  --color-brick:          #1A2535;
+  --color-pale:           #F8FAFC;
+  --color-muted:          #64748B;
+  --color-rose:           #F59E0B;
+  --color-wine:           #101828;
+  --color-brick:          #1E293B;
 
   --font-bebas:           "Bebas Neue", sans-serif;
   --font-grotesk:         "Space Grotesk", sans-serif;
