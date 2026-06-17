@@ -1,0 +1,324 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+.font-bebas  { font-family: 'Bebas Neue', sans-serif; }
+.font-grotesk { font-family: 'Space Grotesk', sans-serif; }
+
+/* What this file does: global CSS design tokens, resets, typography, and animation system for ATLAS */
+@import "tailwindcss";
+
+:root {
+  /* Blade Runner 2049 palette — cold, dusty, amber-hazed dark */
+  --void:       #04060A;   /* pure near-black — page background */
+  --deep:       #080C12;   /* slightly lighter near-black */
+  --steel:      #0E1520;   /* dark steel blue-black — card bg */
+  --iron:       #1A2535;   /* medium dark — borders, surfaces */
+  --slate:      #2E3D52;   /* mid tone — dividers */
+  --fog:        #4A5A6E;   /* muted blue-grey */
+
+  /* Accent — Blade Runner amber haze, used SPARINGLY */
+  --hazegold:   #C8963C;   /* warm amber — single accent only */
+  --hazelight:  #E0B060;   /* brighter amber — hover */
+  --hazedim:    rgba(200, 150, 60, 0.15); /* ghost amber for borders */
+
+  /* Text */
+  --white:      #F0F4F8;   /* near-white — primary text */
+  --silver:     #8A9BB0;   /* muted steel — secondary text */
+  --ghost:      #3A4A5E;   /* very muted — tertiary */
+
+  /* Borders */
+  --border:     rgba(240, 244, 248, 0.08);
+  --border-lit: rgba(240, 244, 248, 0.18);
+
+  /* Mapping old semantic variables to Blade Runner 2049 palette */
+  --obsidian:       var(--void);
+  --char:           var(--deep);
+  --ember:          var(--steel);
+  --ember-hover:    var(--iron);
+  --bronze:         var(--hazegold);
+  --amber:          var(--hazegold);
+  --gold:           var(--hazelight);
+  --sand:           var(--silver);
+  --cream:          var(--white);
+  --parchment:      var(--silver);
+  --ash:            var(--fog);
+  --border-warm:    var(--hazedim);
+  --border-glow:    rgba(200, 150, 60, 0.35);
+
+  --bg-page:        var(--void);
+  --bg-card:        var(--deep);
+  --bg-card-surface:var(--steel);
+  --bg-card-hover:  var(--iron);
+  --text-primary:   var(--white);
+  --text-secondary: var(--silver);
+  --text-muted:     var(--fog);
+  --accent:         var(--hazegold);
+  --accent-light:   var(--hazelight);
+  --accent-dark:    #8B6A30;
+  --border-hover:   var(--border-glow);
+
+  /* === GLASSMORPHISM === */
+  --glass-bg:       rgba(8, 12, 18, 0.6);
+  --glass-border:   rgba(200, 150, 60, 0.2);
+  --glass-blur:     blur(12px);
+
+  /* Aliases to prevent breaking existing code that uses previous names */
+  --base:           var(--bg-card);
+  --slate-alias:    var(--border-hover);
+  --pale:           var(--text-primary);
+  --muted:          var(--text-muted);
+  --rose:           var(--accent);
+  --wine:           var(--ember);
+  --brick:          var(--bg-card-hover);
+
+  --font-display:   "Bebas Neue", sans-serif;
+  --font-body:      "Inter", sans-serif;
+  --font-label:     "Space Grotesk", sans-serif;
+}
+
+@theme {
+  --color-void:       #04060A;
+  --color-deep:       #080C12;
+  --color-steel:      #0E1520;
+  --color-iron:       #1A2535;
+  --color-slate:      #2E3D52;
+  --color-fog:        #4A5A6E;
+  --color-hazegold:   #C8963C;
+  --color-hazelight:  #E0B060;
+
+  --color-obsidian:       #04060A;
+  --color-char:           #080C12;
+  --color-ember:          #0E1520;
+  --color-ember-hover:    #1A2535;
+  --color-bronze:         #C8963C;
+  --color-amber:          #C8963C;
+  --color-gold:           #E0B060;
+  --color-sand:           #8A9BB0;
+  --color-cream:          #F0F4F8;
+  --color-parchment:      #8A9BB0;
+  --color-ash:            #4A5A6E;
+
+  /* Aliases for old colors to prevent Tailwind build breaking */
+  --color-pale:           #F0F4F8;
+  --color-muted:          #4A5A6E;
+  --color-rose:           #C8963C;
+  --color-wine:           #0E1520;
+  --color-brick:          #1A2535;
+
+  --font-bebas:           "Bebas Neue", sans-serif;
+  --font-grotesk:         "Space Grotesk", sans-serif;
+  --font-inter:           "Inter", sans-serif;
+}
+
+html, body {
+  background: var(--void);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+}
+
+.label {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hazegold);
+}
+
+::selection { background: var(--hazegold); color: var(--void); }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb { background: var(--iron); }
+
+/* ─── Hero Load Animations ───────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slowFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-12px); }
+}
+@keyframes orbitSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes scanline {
+  0%   { opacity: 0; transform: translateY(-100%); }
+  50%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 0.65; }
+}
+
+.anim-fade-up   { animation: fadeUp  0.9s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
+.anim-fade-in   { animation: fadeIn  1.2s ease forwards; opacity: 0; }
+.anim-float     { animation: slowFloat 6s ease-in-out infinite; }
+.anim-orbit     { animation: orbitSpin 20s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up, .anim-fade-in, .anim-float, .anim-orbit {
+    animation: none; opacity: 1;
+  }
+}
+
+/* ─── Common UI Components ───────────────────────────────────────────────── */
+
+/* Primary CTA button */
+.btn-rose {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background: var(--accent);
+  color: var(--void);
+  border: none;
+  border-radius: 9999px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  text-decoration: none;
+}
+.btn-rose:hover {
+  background: var(--accent-light);
+  transform: scale(1.03);
+  box-shadow: 0 8px 24px rgba(200, 150, 60, 0.25);
+}
+.btn-rose:active { transform: scale(0.95); }
+
+/* Ghost / outline button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-hover);
+  border-radius: 9999px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  text-decoration: none;
+}
+.btn-ghost:hover {
+  background: rgba(200, 150, 60, 0.15);
+  border-color: var(--accent);
+}
+
+/* Solid pale button (used in Nav: "Sign Up") */
+.btn-pale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  background: var(--pale);
+  color: var(--void);
+  border: none;
+  border-radius: 9999px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  text-decoration: none;
+}
+.btn-pale:hover { background: #ffffff; transform: scale(1.02); }
+
+/* ─── Card ───────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  border-color: var(--border-glow);
+}
+
+/* ─── Badge / Tag ────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.badge-rose  { background: rgba(200, 150, 60, 0.15);  color: var(--accent); border: 1px solid rgba(200, 150, 60, 0.3); }
+.badge-slate { background: rgba(240, 244, 248, 0.08);  color: var(--text-secondary); border: 1px solid rgba(240, 244, 248, 0.15); }
+.badge-hot   { background: rgba(224, 176, 96, 0.15);   color: var(--gold); border: 1px solid rgba(224, 176, 96, 0.3); }
+
+/* ─── Glass panel ────────────────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+
+/* ─── Form inputs ────────────────────────────────────────────────────────── */
+.input-field {
+  width: 100%;
+  background: rgba(4, 6, 10, 0.8);
+  border: 1px solid var(--iron);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  color: var(--pale);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-field::placeholder { color: var(--muted); }
+.input-field:focus { border-color: var(--accent); }
+
+/* ─── Waveform / Pulse (AI agent) ────────────────────────────────────────── */
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.3); }
+  50%       { transform: scaleY(1.0); }
+}
+.wave-bar {
+  display: inline-block;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: waveBar 1s ease-in-out infinite;
+}
+.wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.wave-bar:nth-child(3) { animation-delay: 0.30s; }
+.wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.wave-bar:nth-child(5) { animation-delay: 0.60s; }
+
+/* ─── Spinner ─────────────────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─── Page wrapper ───────────────────────────────────────────────────────── */
+.page-wrapper { min-height: 100vh; background: var(--void); }

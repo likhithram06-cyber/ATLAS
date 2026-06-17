@@ -1,0 +1,30 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "download-house": "node scripts/download-house-model.mjs"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@vitejs/plugin-react": "^6.0.2",
+    "axios": "^1.18.0",
+    "firebase": "^12.15.0",
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^1.20.0",
+    "react-router-dom": "^7.18.0",
+    "tailwindcss": "^4.3.1",
+    "three": "^0.184.0"
+  }
+}
