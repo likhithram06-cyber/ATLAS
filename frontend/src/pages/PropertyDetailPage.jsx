@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, BedDouble, ChevronLeft, ChevronRight, Heart, Mic, ArrowLeft } from 'lucide-react';
-import Navbar from '../components/common/Navbar';
+import Navbar from '../components/Navbar';
 import PropertyCard from '../components/property/PropertyCard';
 import PhotoCarousel from '../components/property/PhotoCarousel';
 import SaveButton from '../components/property/SaveButton';

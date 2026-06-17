@@ -49,6 +49,11 @@ async function verifyFirebaseToken(idToken) {
     issuer: `https://securetoken.google.com/${projectId}`
   });
 
+  // Map sub to uid as a convenience since Firebase ID token uses sub for User ID
+  if (verified && verified.sub && !verified.uid) {
+    verified.uid = verified.sub;
+  }
+
   return verified;
 }
 

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Heart, Home } from 'lucide-react';
-import Navbar from '../components/common/Navbar';
+import Navbar from '../components/Navbar';
 import PropertyCard from '../components/property/PropertyCard';
 import { getMe } from '../api/authApi';
 import { getProperty } from '../api/propertyApi';

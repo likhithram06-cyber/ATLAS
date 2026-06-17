@@ -35,3 +35,13 @@ lerna-debug.log*
 # Temporary uploads/caches
 temp_uploads/
 .vite/
+
+# Dataset images (downloaded per machine via setup.js or download_dataset.py)
+frontend/public/images/exterior/
+frontend/public/images/bedroom/
+frontend/public/images/bathroom/
+frontend/public/images/kitchen/
+frontend/public/images/living_room/
+
+# 3D model (downloaded separately)
+frontend/public/models/

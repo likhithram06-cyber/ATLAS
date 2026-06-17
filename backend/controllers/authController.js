@@ -85,7 +85,10 @@ exports.googleAuth = async (req, res) => {
       return res.status(401).json({ error: `Google verification failed: ${verifErr.message}` });
     }
 
-    const googleId = decoded.uid;
+    const googleId = decoded.uid || decoded.sub;
+    if (!googleId) {
+      return res.status(400).json({ error: 'Invalid Google token: user ID (uid/sub) not found' });
+    }
     const email = decoded.email;
     const name = decoded.name || email.split('@')[0];
 

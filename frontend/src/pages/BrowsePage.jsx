@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '../components/common/Navbar';
+import Navbar from '../components/Navbar';
 import PropertyGrid from '../components/property/PropertyGrid';
 import PropertyModal from '../components/property/PropertyModal';
 import { getProperties } from '../api/propertyApi';

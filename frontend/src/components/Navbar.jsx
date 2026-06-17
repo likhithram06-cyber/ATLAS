@@ -41,8 +41,8 @@ export default function Navbar() {
           right:          0,
           zIndex:         200,
           height:         "64px",
-          display:        "grid",
-          gridTemplateColumns: "1fr auto 1fr",
+          display:        "flex",
+          justifyContent: "space-between",
           alignItems:     "center",
           padding:        "0 5vw",
           background:     scrolled ? "rgba(10,14,13,0.60)" : "transparent",
@@ -66,7 +66,6 @@ export default function Navbar() {
             alignItems: "center",
             gap:        "10px",
             padding:    0,
-            justifySelf: "start",
           }}
         >
           {/* Logo mark — emerald triangles */}
@@ -90,51 +89,17 @@ export default function Navbar() {
           </span>
         </button>
 
-        {/* ── CENTER: Browse Properties pill (desktop only) ── */}
-        <div className="hidden md:flex" style={{ justifySelf: "center" }}>
-          <button
-            onClick={() => navigate("/browse")}
-            style={{
-              fontFamily:    "'Space Grotesk', sans-serif",
-              fontWeight:    600,
-              fontSize:      "0.78rem",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              background:    "transparent",
-              color:         "var(--emerald)",
-              border:        "1px solid rgba(16,185,129,0.5)",
-              borderRadius:  "9999px",
-              padding:       "8px 22px",
-              cursor:        "pointer",
-              transition:    "all 0.25s ease",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background  = "rgba(16,185,129,0.12)";
-              e.currentTarget.style.borderColor = "var(--emerald)";
-              e.currentTarget.style.boxShadow   = "0 0 16px rgba(16,185,129,0.2)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background  = "transparent";
-              e.currentTarget.style.borderColor = "rgba(16,185,129,0.5)";
-              e.currentTarget.style.boxShadow   = "none";
-            }}
-          >
-            Browse Properties
-          </button>
-        </div>
-
-        {/* ── RIGHT: Sign In + dropdown + hamburger ── */}
+        {/* ── RIGHT: Profile name + hamburger ── */}
         <div
           style={{
             display:     "flex",
             alignItems:  "center",
-            gap:         "12px",
-            justifySelf: "end",
+            gap:         "14px",
           }}
         >
-          {/* Desktop auth area */}
+          {/* Profile pill (when logged in) */}
           {isAuthenticated ? (
-            <div className="hidden md:block" style={{ position: "relative" }}>
+            <div style={{ position: "relative" }}>
               <button
                 onClick={() => setDropOpen(!dropOpen)}
                 style={{
@@ -228,7 +193,6 @@ export default function Navbar() {
           ) : (
             <button
               onClick={() => navigate("/login")}
-              className="hidden md:block"
               style={{
                 background:    "transparent",
                 color:         "rgba(245,245,240,0.65)",
@@ -255,9 +219,8 @@ export default function Navbar() {
             </button>
           )}
 
-          {/* Hamburger — mobile */}
+          {/* Hamburger — always visible */}
           <button
-            className="md:hidden"
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Menu"
             style={{
@@ -288,9 +251,8 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* ── Mobile dropdown menu ── */}
+      {/* ── Dropdown menu (hamburger) ── */}
       <div
-        className="md:hidden"
         style={{
           position:       "fixed",
           top:            "64px",
@@ -308,13 +270,24 @@ export default function Navbar() {
         }}
       >
         {[
-          { label: "Browse Properties", path: "/browse" },
+          { label: "Explore Homes", path: "/" },
           { label: "AI Agent",          path: "/browse" },
           { label: "For Agents",        path: "/admin/login" },
         ].map(link => (
           <button
             key={link.label}
-            onClick={() => navigate(link.path)}
+            onClick={() => {
+              if (link.label === "Explore Homes") {
+                if (location.pathname === "/") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                } else {
+                  navigate("/");
+                }
+                setMenuOpen(false);
+              } else {
+                navigate(link.path);
+              }
+            }}
             style={{
               display:      "block",
               width:        "100%",
