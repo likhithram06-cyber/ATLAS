@@ -8,46 +8,50 @@
 @import "tailwindcss";
 
 :root {
-  /* Twilight & Luxury Forest theme — cold dusk sky, warm cozy interiors, green forest */
-  --void:       #050811;   /* deep twilight midnight blue */
-  --deep:       #090F1D;   /* deep navy-black */
-  --steel:      #101828;   /* dark slate navy — card bg */
-  --iron:       #1E293B;   /* medium slate — borders, surfaces */
-  --slate:      #334155;   /* slate gray-blue — dividers */
-  --fog:        #64748B;   /* soft muted slate */
+  /* ── Emerald & Ink theme ────────────────────────────────────────────────── */
+  --void:        #0A0E0D;   /* near-black ink base */
+  --deep:        #0D1210;   /* slightly lifted card bg */
+  --steel:       #121A18;   /* dark card surface */
+  --iron:        #1A2621;   /* medium surface — borders */
+  --slate:       #2A3D37;   /* divider */
+  --fog:         #4A6358;   /* muted medium */
 
-  /* Accent — Cozy glowing amber/gold */
-  --hazegold:   #F59E0B;   /* warm glowing amber */
-  --hazelight:  #FBBF24;   /* bright glow — hover */
-  --hazedim:    rgba(245, 158, 11, 0.15); /* ghost amber for borders */
+  /* ── Primary accent: Emerald ── */
+  --emerald:     #10B981;   /* primary emerald */
+  --emerald-lit: #34D8C4;   /* jade-cyan — hover glows, gradient endpoint */
+  --emerald-dim: rgba(16, 185, 129, 0.15);
+  --emerald-border: rgba(16, 185, 129, 0.25);
 
-  /* Forest green tone */
-  --forest:     #10B981;   /* forest emerald green */
-  --forest-dim: rgba(16, 185, 129, 0.15);
+  /* Legacy amber aliases → now map to emerald so existing code keeps working */
+  --hazegold:    #10B981;   /* was amber, now emerald */
+  --hazelight:   #34D8C4;   /* was bright amber, now jade-cyan */
+  --hazedim:     rgba(16, 185, 129, 0.15);
 
-  /* Text */
-  --white:      #F8FAFC;   /* slate white — primary text */
-  --silver:     #94A3B8;   /* slate silver — secondary text */
-  --ghost:      #334155;   /* dark slate — tertiary */
+  /* ── Text ── */
+  --white:       #F5F5F0;   /* warm ivory — headlines */
+  --silver:      #A8B0AC;   /* supporting copy */
+  --ghost:       #2A3D37;   /* tertiary / placeholders */
 
-  /* Borders */
-  --border:     rgba(248, 250, 252, 0.08);
-  --border-lit: rgba(248, 250, 252, 0.18);
+  /* ── Borders ── */
+  --border:      rgba(16, 185, 129, 0.12);
+  --border-lit:  rgba(16, 185, 129, 0.28);
 
-  /* Mapping old semantic variables to Twilight & Forest palette */
+  /* ── Semantic aliases (keep old names working) ── */
   --obsidian:       var(--void);
   --char:           var(--deep);
   --ember:          var(--steel);
   --ember-hover:    var(--iron);
-  --bronze:         var(--hazegold);
-  --amber:          var(--hazegold);
-  --gold:           var(--hazelight);
+  --bronze:         var(--emerald);
+  --amber:          var(--emerald);
+  --gold:           var(--emerald-lit);
   --sand:           var(--silver);
   --cream:          var(--white);
   --parchment:      var(--silver);
   --ash:            var(--fog);
-  --border-warm:    var(--hazedim);
-  --border-glow:    rgba(245, 158, 11, 0.35);
+  --border-warm:    var(--emerald-dim);
+  --border-glow:    rgba(16, 185, 129, 0.35);
+  --forest:         var(--emerald);
+  --forest-dim:     var(--emerald-dim);
 
   --bg-page:        var(--void);
   --bg-card:        var(--deep);
@@ -56,17 +60,17 @@
   --text-primary:   var(--white);
   --text-secondary: var(--silver);
   --text-muted:     var(--fog);
-  --accent:         var(--hazegold);
-  --accent-light:   var(--hazelight);
-  --accent-dark:    #B45309;
+  --accent:         var(--emerald);
+  --accent-light:   var(--emerald-lit);
+  --accent-dark:    #059669;
   --border-hover:   var(--border-glow);
 
-  /* === GLASSMORPHISM === */
-  --glass-bg:       rgba(9, 15, 29, 0.65);
-  --glass-border:   rgba(245, 158, 11, 0.2);
-  --glass-blur:     blur(16px);
+  /* ── Glassmorphism ── */
+  --glass-bg:     rgba(10, 14, 13, 0.60);
+  --glass-border: rgba(16, 185, 129, 0.20);
+  --glass-blur:   blur(12px);
 
-  /* Aliases to prevent breaking existing code that uses previous names */
+  /* ── Misc aliases ── */
   --base:           var(--bg-card);
   --slate-alias:    var(--border-hover);
   --pale:           var(--text-primary);
@@ -81,38 +85,39 @@
 }
 
 @theme {
-  --color-void:       #050811;
-  --color-deep:       #090F1D;
-  --color-steel:      #101828;
-  --color-iron:       #1E293B;
-  --color-slate:      #334155;
-  --color-fog:        #64748B;
-  --color-hazegold:   #F59E0B;
-  --color-hazelight:  #FBBF24;
+  --color-void:       #0A0E0D;
+  --color-deep:       #0D1210;
+  --color-steel:      #121A18;
+  --color-iron:       #1A2621;
+  --color-slate:      #2A3D37;
+  --color-fog:        #4A6358;
+  --color-emerald:    #10B981;
+  --color-jade:       #34D8C4;
+
+  /* Legacy color tokens kept for Tailwind class compat */
+  --color-hazegold:   #10B981;
+  --color-hazelight:  #34D8C4;
   --color-forest:     #10B981;
+  --color-obsidian:   #0A0E0D;
+  --color-char:       #0D1210;
+  --color-ember:      #121A18;
+  --color-ember-hover:#1A2621;
+  --color-bronze:     #10B981;
+  --color-amber:      #10B981;
+  --color-gold:       #34D8C4;
+  --color-sand:       #A8B0AC;
+  --color-cream:      #F5F5F0;
+  --color-parchment:  #A8B0AC;
+  --color-ash:        #4A6358;
+  --color-pale:       #F5F5F0;
+  --color-muted:      #4A6358;
+  --color-rose:       #10B981;
+  --color-wine:       #121A18;
+  --color-brick:      #1A2621;
 
-  --color-obsidian:       #050811;
-  --color-char:           #090F1D;
-  --color-ember:          #101828;
-  --color-ember-hover:    #1E293B;
-  --color-bronze:         #F59E0B;
-  --color-amber:          #F59E0B;
-  --color-gold:           #FBBF24;
-  --color-sand:           #94A3B8;
-  --color-cream:          #F8FAFC;
-  --color-parchment:      #94A3B8;
-  --color-ash:            #64748B;
-
-  /* Aliases for old colors to prevent Tailwind build breaking */
-  --color-pale:           #F8FAFC;
-  --color-muted:          #64748B;
-  --color-rose:           #F59E0B;
-  --color-wine:           #101828;
-  --color-brick:          #1E293B;
-
-  --font-bebas:           "Bebas Neue", sans-serif;
-  --font-grotesk:         "Space Grotesk", sans-serif;
-  --font-inter:           "Inter", sans-serif;
+  --font-bebas:   "Bebas Neue", sans-serif;
+  --font-grotesk: "Space Grotesk", sans-serif;
+  --font-inter:   "Inter", sans-serif;
 }
 
 html, body {
@@ -124,24 +129,22 @@ html, body {
   scroll-behavior: smooth;
 }
 
-h1 {
-  font-family: 'Bebas Neue', sans-serif;
-}
+h1 { font-family: 'Bebas Neue', sans-serif; }
 
 .label {
   font-family: "Space Grotesk", sans-serif;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--hazegold);
+  color: var(--emerald);
 }
 
-::selection { background: var(--hazegold); color: var(--void); }
+::selection { background: var(--emerald); color: var(--void); }
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: var(--void); }
 ::-webkit-scrollbar-thumb { background: var(--iron); }
 
-/* ─── Hero Load Animations ───────────────────────────────────────────────── */
+/* ── Hero Load Animations ─────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(30px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -158,14 +161,29 @@ h1 {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
-@keyframes scanline {
-  0%   { opacity: 0; transform: translateY(-100%); }
-  50%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(100%); }
+
+/* Ken Burns — slow zoom on hero video */
+@keyframes kenBurns {
+  0%   { transform: scale(1.0); }
+  100% { transform: scale(1.08); }
 }
-@keyframes pulse {
-  0%, 100% { opacity: 0.25; }
-  50%       { opacity: 0.65; }
+
+/* Emerald glow pulse on primary CTA */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(16,185,129,0.35), 0 4px 24px rgba(52,216,196,0.15); }
+  50%       { box-shadow: 0 0 32px rgba(16,185,129,0.55), 0 8px 40px rgba(52,216,196,0.25); }
+}
+
+/* Count-up fade-in */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll-triggered fade-up (via JS class toggle) */
+@keyframes scrollReveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .anim-fade-up   { animation: fadeUp  0.9s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
@@ -173,21 +191,32 @@ h1 {
 .anim-float     { animation: slowFloat 6s ease-in-out infinite; }
 .anim-orbit     { animation: orbitSpin 20s linear infinite; }
 
+/* Scroll-reveal: elements start hidden, JS adds .revealed */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 600ms ease-out, transform 600ms ease-out;
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .anim-fade-up, .anim-fade-in, .anim-float, .anim-orbit {
-    animation: none; opacity: 1;
+  .anim-fade-up, .anim-fade-in, .anim-float, .anim-orbit, .reveal {
+    animation: none; opacity: 1; transform: none;
   }
 }
 
-/* ─── Common UI Components ───────────────────────────────────────────────── */
+/* ── Common UI Components ─────────────────────────────────────────────────── */
 
-/* Primary CTA button */
+/* Primary CTA — solid emerald */
 .btn-rose {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.75rem;
-  background: var(--accent);
+  padding: 0.8rem 2rem;
+  background: var(--emerald);
   color: var(--void);
   border: none;
   border-radius: 9999px;
@@ -195,39 +224,42 @@ h1 {
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  transition: background 0.25s, transform 0.2s ease, box-shadow 0.25s;
   text-decoration: none;
+  animation: glowPulse 3s ease-in-out infinite;
 }
 .btn-rose:hover {
-  background: var(--accent-light);
+  background: var(--emerald-lit);
   transform: scale(1.03);
-  box-shadow: 0 8px 24px rgba(200, 150, 60, 0.25);
+  box-shadow: 0 0 32px rgba(16,185,129,0.55), 0 8px 40px rgba(52,216,196,0.2);
+  animation: none;
 }
-.btn-rose:active { transform: scale(0.95); }
+.btn-rose:active { transform: scale(0.97); }
 
 /* Ghost / outline button */
 .btn-ghost {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.65rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border-hover);
+  color: var(--white);
+  border: 1px solid var(--emerald-border);
   border-radius: 9999px;
   font-family: var(--font-body);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
   text-decoration: none;
 }
 .btn-ghost:hover {
-  background: rgba(200, 150, 60, 0.15);
-  border-color: var(--accent);
+  background: rgba(16,185,129,0.12);
+  border-color: var(--emerald);
+  color: var(--emerald-lit);
 }
 
-/* Solid pale button (used in Nav: "Sign Up") */
+/* Solid pale button */
 .btn-pale {
   display: inline-flex;
   align-items: center;
@@ -246,7 +278,7 @@ h1 {
 }
 .btn-pale:hover { background: #ffffff; transform: scale(1.02); }
 
-/* ─── Card ───────────────────────────────────────────────────────────────── */
+/* ── Card ─────────────────────────────────────────────────────────────────── */
 .card {
   background: var(--base);
   border: 1px solid var(--border);
@@ -260,7 +292,7 @@ h1 {
   border-color: var(--border-glow);
 }
 
-/* ─── Badge / Tag ────────────────────────────────────────────────────────── */
+/* ── Badge / Tag ──────────────────────────────────────────────────────────── */
 .badge {
   display: inline-block;
   padding: 0.18rem 0.55rem;
@@ -270,11 +302,11 @@ h1 {
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.badge-rose  { background: rgba(200, 150, 60, 0.15);  color: var(--accent); border: 1px solid rgba(200, 150, 60, 0.3); }
-.badge-slate { background: rgba(240, 244, 248, 0.08);  color: var(--text-secondary); border: 1px solid rgba(240, 244, 248, 0.15); }
-.badge-hot   { background: rgba(224, 176, 96, 0.15);   color: var(--gold); border: 1px solid rgba(224, 176, 96, 0.3); }
+.badge-rose  { background: rgba(16,185,129,0.12); color: var(--emerald); border: 1px solid rgba(16,185,129,0.3); }
+.badge-slate { background: rgba(240,244,248,0.08); color: var(--text-secondary); border: 1px solid rgba(240,244,248,0.15); }
+.badge-hot   { background: rgba(52,216,196,0.12); color: var(--emerald-lit); border: 1px solid rgba(52,216,196,0.3); }
 
-/* ─── Glass panel ────────────────────────────────────────────────────────── */
+/* ── Glass panel ──────────────────────────────────────────────────────────── */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -282,7 +314,7 @@ h1 {
   border: 1px solid var(--glass-border);
 }
 
-/* ─── Form inputs ────────────────────────────────────────────────────────── */
+/* ── Form inputs ──────────────────────────────────────────────────────────── */
 .input-field {
   width: 100%;
   background: rgba(4, 6, 10, 0.8);
@@ -296,9 +328,9 @@ h1 {
   transition: border-color 0.2s;
 }
 .input-field::placeholder { color: var(--muted); }
-.input-field:focus { border-color: var(--accent); }
+.input-field:focus { border-color: var(--emerald); }
 
-/* ─── Waveform / Pulse (AI agent) ────────────────────────────────────────── */
+/* ── Waveform / Pulse (AI agent) ──────────────────────────────────────────── */
 @keyframes waveBar {
   0%, 100% { transform: scaleY(0.3); }
   50%       { transform: scaleY(1.0); }
@@ -315,7 +347,7 @@ h1 {
 .wave-bar:nth-child(4) { animation-delay: 0.45s; }
 .wave-bar:nth-child(5) { animation-delay: 0.60s; }
 
-/* ─── Spinner ─────────────────────────────────────────────────────────────── */
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner {
   width: 36px; height: 36px;
@@ -325,5 +357,5 @@ h1 {
   animation: spin 0.8s linear infinite;
 }
 
-/* ─── Page wrapper ───────────────────────────────────────────────────────── */
+/* ── Page wrapper ─────────────────────────────────────────────────────────── */
 .page-wrapper { min-height: 100vh; background: var(--void); }
