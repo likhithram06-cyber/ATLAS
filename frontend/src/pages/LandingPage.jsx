@@ -1,7 +1,7 @@
 // src/pages/LandingPage.jsx
 // What this file does: ATLAS hero — 3D house model with cursor parallax + depth text + Blade Runner palette
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar      from "../components/Navbar";
 import HeroCanvas  from "../components/HeroCanvas";
@@ -50,52 +50,17 @@ function getT(px, py, mult) {
   return `translate(${px * mult}px, ${py * mult}px)`;
 }
 
-// ── Loading skeleton shown while GLB downloads ─────────────────────────────
-function ModelLoader() {
-  return (
-    <div style={{
-      position:       "absolute",
-      inset:          0,
-      zIndex:         20,
-      display:        "flex",
-      alignItems:     "center",
-      justifyContent: "center",
-      pointerEvents:  "none",
-    }}>
-      <div style={{
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        gap:            "20px",
-      }}>
-        {/* Pulsing house silhouette placeholder */}
-        <div style={{
-          width:        "clamp(200px, 28vw, 400px)",
-          height:       "clamp(140px, 20vw, 280px)",
-          border:       "1px solid rgba(200,150,60,0.18)",
-          borderRadius: "3px",
-          animation:    "pulse 2.2s ease-in-out infinite",
-          background:   "rgba(200,150,60,0.03)",
-        }} />
-        <div style={{
-          fontFamily:    "'Space Grotesk', sans-serif",
-          fontSize:      "0.65rem",
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color:         "rgba(200,150,60,0.4)",
-          animation:     "pulse 2.2s ease-in-out infinite",
-        }}>
-          Loading 3D Model
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
   const mouse    = useMouseTracking();
+  const [modelOk, setModelOk] = useState(true);
+
+  useEffect(() => {
+    fetch("/models/house.glb", { method: "HEAD" })
+      .then((r) => setModelOk(r.ok))
+      .catch(() => setModelOk(false));
+  }, []);
 
   return (
     <div style={{ background: "var(--void)", minHeight: "100vh", overflow: "hidden" }}>
@@ -177,10 +142,25 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* ── LAYER 20: 3D House Canvas — full-bleed WebGL ── */}
-        <Suspense fallback={<ModelLoader />}>
+        {/* ── LAYER 20: 3D House — center of hero, between the two text lines ── */}
+        {modelOk ? (
           <HeroCanvas mouseX={mouse.nx} mouseY={mouse.ny} />
-        </Suspense>
+        ) : (
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 20, textAlign: "center", maxWidth: "320px",
+            padding: "20px", border: "1px solid rgba(200,150,60,0.3)",
+            borderRadius: "4px", background: "rgba(4,6,10,0.9)",
+          }}>
+            <p style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "0.75rem", color: "var(--hazegold)", marginBottom: "8px" }}>
+              3D model file missing
+            </p>
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", color: "rgba(240,244,248,0.5)", lineHeight: 1.6 }}>
+              Run <code style={{ color: "var(--hazegold)" }}>npm run download-house</code> in the frontend folder, then refresh.
+            </p>
+          </div>
+        )}
 
         {/* Orbit ring 1 — decorative, moves slightly counter to cursor */}
         <div style={{

@@ -5,4 +5,11 @@ import tailwind from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwind()],
+  resolve: {
+    // Prevent duplicate React / Three copies — breaks @react-three/fiber Canvas
+    dedupe: ['react', 'react-dom', 'three', '@react-three/fiber'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'three', '@react-three/fiber', '@react-three/drei'],
+  },
 });
