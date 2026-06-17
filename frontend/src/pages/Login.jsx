@@ -103,9 +103,9 @@ export default function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
-      
+
       const res = await googleAuth(idToken);
-      
+
       if (res.data.needsPhone) {
         setGoogleUser({ idToken });
         setNeedPhoneForGoogle(true);
@@ -114,13 +114,19 @@ export default function Login() {
       } else {
         login(res.data.token, res.data.user);
         setToast('Successfully signed in!');
-        setTimeout(() => {
-          navigate('/');
-        }, 1000);
+        setTimeout(() => navigate('/'), 1000);
       }
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.error || err.message || 'Google authentication failed');
+      console.error('Google Sign-In error:', err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('Please open the app at http://localhost:5173 (not 127.0.0.1) for Google Sign-In to work.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in popup was closed. Please try again.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Popup was blocked by your browser. Please allow popups for this site.');
+      } else {
+        setError(err.response?.data?.error || err.message || 'Google authentication failed');
+      }
     } finally {
       setLoading(false);
     }

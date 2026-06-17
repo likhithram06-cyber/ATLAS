@@ -6,18 +6,21 @@ import tailwind from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwind()],
 
-  // Tell Vite to treat .glb and .gltf as static assets — serve them as-is
-  // Without this, Vite intercepts /models/house.glb and returns HTML (404 page)
+  // Dev server — must use 'localhost' (not 127.0.0.1) so Firebase authorized domains work
+  server: {
+    host: 'localhost',
+    port: 5173,
+    strictPort: false,
+  },
+
+  // Tell Vite to treat .glb and .gltf as static assets
   assetsInclude: ['**/*.glb', '**/*.gltf', '**/*.bin'],
 
   resolve: {
-    // Prevent duplicate React / Three copies — breaks @react-three/fiber Canvas
-    dedupe: ['react', 'react-dom', 'three', '@react-three/fiber'],
+    dedupe: ['react', 'react-dom'],
   },
 
   optimizeDeps: {
-    include: ['react', 'react-dom', 'three', '@react-three/fiber', '@react-three/drei'],
-    // Exclude drei from pre-bundling — it uses dynamic imports that break with optimizeDeps
-    exclude: ['@react-three/drei'],
+    include: ['react', 'react-dom'],
   },
 });
