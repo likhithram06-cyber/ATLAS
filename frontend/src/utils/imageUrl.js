@@ -10,10 +10,11 @@ export function getImageUrl(path) {
   const isProduction = backendUrl.includes('render.com') || backendUrl.includes('railway.app') || !backendUrl.includes('localhost');
   if (isProduction && path.includes('uploads/dataset/')) {
     const filename = path.split('/').pop() || '';
-    return `https://raw.githubusercontent.com/emanhamed/Houses-dataset/master/Houses%20Dataset/${encodeURIComponent(filename)}`;
+    if (filename) {
+      return `https://raw.githubusercontent.com/emanhamed/Houses-dataset/master/Houses%20Dataset/${filename}`;
+    }
   }
 
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${backendUrl}${cleanPath}`;
 }
-
