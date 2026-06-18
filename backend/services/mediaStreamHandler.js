@@ -297,6 +297,7 @@ async function handleFinalUtterance(utterance, session, twilioWs) {
   }
 
   const replyTime = Date.now() - t0;
+  console.log("GROQ RESPONSE:", agentReply.trim());
   console.log(`[pipeline] ✅ Full reply delivered in ${replyTime}ms — "${agentReply.trim()}"`);
 
   if (agentReply.trim()) {
@@ -365,6 +366,7 @@ async function initSarvamSockets(session, twilioWs) {
         } else if (signal === 'END_SPEECH') {
           console.log('[stt] 🎙️  Speech end');
           const utterance = (session.currentTranscript || '').trim();
+          console.log("FINAL TRANSCRIPT:", utterance);
           session.currentTranscript = '';
           if (utterance.length >= 2) {
             handleFinalUtterance(utterance, session, twilioWs).catch((err) =>
@@ -423,6 +425,7 @@ async function initSarvamSockets(session, twilioWs) {
         const audioB64 = msg.data?.audio;
         if (audioB64) {
           sendAudioToTwilio(twilioWs, session.streamSid, audioB64);
+          console.log("TTS SENT");
         }
 
       } else if (msg.type === 'event' && msg.data?.event_type === 'final') {
@@ -489,6 +492,7 @@ async function finalizeCallRecord(session, status) {
 // MAIN EXPORT — called once per incoming Twilio Media Stream WebSocket
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleMediaStream(twilioWs) {
+  console.log("TWILIO WS CONNECTED");
   const connectionStart = Date.now();
   console.log('[media-stream] 🔌 New Twilio Media Stream connection');
 
@@ -604,6 +608,7 @@ async function handleMediaStream(twilioWs) {
 
         // ── Media (audio frames from caller) ──────────────────────────────
         case 'media': {
+          console.log("MEDIA EVENT RECEIVED");
           const payload = msg.media?.payload;
           if (!payload || !CallSession.sttSocket) return;
 

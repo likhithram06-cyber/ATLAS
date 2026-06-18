@@ -113,6 +113,7 @@ exports.makeCall = async (req, res) => {
   const voiceUrl          = `${activeBaseUrl}/api/call/voice-stream?propertyId=${propertyId}`;
   const statusCallbackUrl = `${activeBaseUrl}/api/call/status`;
 
+  console.log("CALL URL:", voiceUrl);
   console.log('[makeCall] Routing call through Media Stream pipeline:', voiceUrl);
 
   try {
@@ -153,6 +154,7 @@ exports.makeCall = async (req, res) => {
 // The mediaStreamHandler then drives the full STT → LLM → TTS pipeline.
 // ─────────────────────────────────────────────────────────────────────────────
 exports.voiceWebhookStream = async (req, res) => {
+  console.log("VOICE-STREAM WEBHOOK HIT");
   const t0 = Date.now();
   const { VoiceResponse } = twilio.twiml;
   const twiml = new VoiceResponse();
