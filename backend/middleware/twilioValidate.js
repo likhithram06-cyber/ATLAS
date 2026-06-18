@@ -18,7 +18,7 @@ module.exports = function twilioValidate(req, res, next) {
   if (!authToken || !baseUrl) {
     console.error('[twilioValidate] Error: missing Twilio configuration');
     res.type('text/xml');
-    return res.status(500).send(`
+    return res.status(200).send(`
       <Response>
         <Say>Configuration error. Twilio credentials not configured.</Say>
         <Reject />
@@ -26,9 +26,11 @@ module.exports = function twilioValidate(req, res, next) {
     `);
   }
 
-  // Reconstruct the full URL Twilio used when making this request
+  // Reconstruct the full URL Twilio used when making this request without double-slashes
   const urlPath = req.originalUrl || req.url;
-  const fullUrl = `${baseUrl}${urlPath}`;
+  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanUrlPath = urlPath.startsWith('/') ? urlPath : `/${urlPath}`;
+  const fullUrl = `${cleanBaseUrl}${cleanUrlPath}`;
 
   const signature = req.headers['x-twilio-signature'] || '';
 
@@ -43,9 +45,9 @@ module.exports = function twilioValidate(req, res, next) {
       signature: signature?.slice(0, 20) + '…',
     });
     
-    // Return valid TwiML XML instead of JSON to prevent Twilio "Application Error" crashes
+    // Return status 200 with valid TwiML XML to allow Twilio to play the validation error description
     res.type('text/xml');
-    return res.status(403).send(`
+    return res.status(200).send(`
       <Response>
         <Say>Security validation failed. Access denied.</Say>
         <Reject />
