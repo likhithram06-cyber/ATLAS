@@ -5,8 +5,8 @@ const propertySchema = new mongoose.Schema({
   title:       { type: String, required: true },
   description: { type: String, required: true },
   price:       { type: Number, required: true, index: true }, // indexed for binary search
-  location:    { type: String, required: true },
-  bhk:         { type: Number, required: true },
+  location:    { type: String, required: true, index: true },
+  bhk:         { type: Number, required: true, index: true },
   images:      [{ type: String }],  // array of image paths
   features:    [{ type: String }],
   sqft:        { type: Number },

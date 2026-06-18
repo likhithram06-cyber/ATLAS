@@ -19,6 +19,7 @@ const callRecordSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Property',
     required: true,
+    index: true,
   },
   callerPhone: {
     type: String,

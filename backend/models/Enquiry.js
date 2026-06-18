@@ -2,8 +2,8 @@
 const mongoose = require('mongoose');
 
 const enquirySchema = new mongoose.Schema({
-  property:   { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true },
-  user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  property:   { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true, index: true },
+  user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
 
   // Full conversation transcript between caller and AI agent
   transcript: [{
@@ -13,7 +13,7 @@ const enquirySchema = new mongoose.Schema({
   }],
 
   // Composite 0-100 score representing how likely the caller is to convert
-  intentScore: { type: Number, default: 0 },
+  intentScore: { type: Number, default: 0, index: true },
 
   // Breakdown of what drove the score, e.g. [{reason: "Asked about price", points: 20}]
   intentBreakdown: [{

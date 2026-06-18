@@ -2,11 +2,17 @@
 const Property = require('../models/Property');
 const { findPriceRange } = require('../utils/binarySearch');
 const { getSimilar } = require('../utils/cosineSimilarity');
+const { getCache, setCache, clearPropertyCache } = require('../config/redis');
 
 // GET all properties (with price range, BHK, and location filtering)
 exports.getProperties = async (req, res) => {
   try {
-    let properties = await Property.find().sort({ price: 1 });
+    let properties = await getCache('properties:all');
+    if (!properties) {
+      properties = await Property.find().sort({ price: 1 });
+      await setCache('properties:all', properties);
+    }
+
     const { minPrice, maxPrice, bhk, location } = req.query;
 
     if (minPrice || maxPrice) {
@@ -34,13 +40,31 @@ exports.getProperties = async (req, res) => {
 // GET top 4 similar listings based on cosine similarity
 exports.getSimilarProperties = async (req, res) => {
   try {
-    const target = await Property.findById(req.params.id);
-    if (!target) {
-      return res.status(404).json({ error: 'Property not found' });
+    const key = `property:similar:${req.params.id}`;
+    let similar = await getCache(key);
+    if (similar) {
+      return res.json(similar);
     }
 
-    const all = await Property.find();
-    const similar = getSimilar(target, all, 4);
+    // Cache lookup for target property details
+    let target = await getCache(`property:id:${req.params.id}`);
+    if (!target) {
+      target = await Property.findById(req.params.id);
+      if (!target) {
+        return res.status(404).json({ error: 'Property not found' });
+      }
+      await setCache(`property:id:${req.params.id}`, target);
+    }
+
+    // Cache lookup for all properties
+    let all = await getCache('properties:all');
+    if (!all) {
+      all = await Property.find().sort({ price: 1 });
+      await setCache('properties:all', all);
+    }
+
+    similar = getSimilar(target, all, 4);
+    await setCache(key, similar);
     res.json(similar);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -50,10 +74,18 @@ exports.getSimilarProperties = async (req, res) => {
 // GET a single property by ID
 exports.getPropertyById = async (req, res) => {
   try {
-    const property = await Property.findById(req.params.id);
+    const key = `property:id:${req.params.id}`;
+    let property = await getCache(key);
+    if (property) {
+      return res.json(property);
+    }
+
+    property = await Property.findById(req.params.id);
     if (!property) {
       return res.status(404).json({ error: 'Property not found' });
     }
+
+    await setCache(key, property);
     res.json(property);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -88,6 +120,10 @@ exports.createProperty = async (req, res) => {
     };
 
     const property = await Property.create(propertyData);
+
+    // Invalidate properties cache
+    await clearPropertyCache();
+
     res.status(201).json(property);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -39,6 +39,9 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB Atlas
 connectDB();
 
+// Initialize Redis Cache
+require('./config/redis');
+
 // Middleware: parse JSON/URL-encoded bodies and allow cross-origin requests from frontend
 // express.urlencoded is required for Twilio webhook POST bodies (application/x-www-form-urlencoded)
 app.use(cors());
