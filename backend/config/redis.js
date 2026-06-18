@@ -6,46 +6,61 @@ let isConnected = false;
 
 // Create Redis Client instance
 if (process.env.REDIS_URL || process.env.NODE_ENV === 'production' || true) {
-  const url = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+  let url = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+  
+  // Handle case where Redis URL is set to password or has missing protocol
+  if (url && !url.startsWith('redis://') && !url.startsWith('rediss://')) {
+    console.warn(`⚠️ Warning: Redis URL '${url}' is missing redis:// or rediss:// protocol.`);
+    if (url.includes(':') || url.includes('.') || url === 'localhost') {
+      url = `redis://${url}`;
+    }
+  }
+
   console.log(`🔌 Initializing Redis client on: ${url}`);
   
-  client = redis.createClient({
-    url,
-    socket: {
-      reconnectStrategy: (retries) => {
-        // Limit reconnection attempts so logs aren't spammed endlessly
-        if (retries > 10) {
-          console.warn('⚠️ Redis reconnection attempts exceeded limit. Continuing with fallback queries.');
-          return new Error('Redis connection failed permanently');
+  try {
+    client = redis.createClient({
+      url,
+      socket: {
+        reconnectStrategy: (retries) => {
+          // Limit reconnection attempts so logs aren't spammed endlessly
+          if (retries > 10) {
+            console.warn('⚠️ Redis reconnection attempts exceeded limit. Continuing with fallback queries.');
+            return new Error('Redis connection failed permanently');
+          }
+          return Math.min(retries * 500, 2000); // retry after 0.5s, 1s, etc.
         }
-        return Math.min(retries * 500, 2000); // retry after 0.5s, 1s, etc.
       }
-    }
-  });
+    });
 
-  client.on('connect', () => {
-    console.log('🔌 Connecting to Redis...');
-  });
+    client.on('connect', () => {
+      console.log('🔌 Connecting to Redis...');
+    });
 
-  client.on('ready', () => {
-    isConnected = true;
-    console.log('✅ Redis client ready and connected!');
-  });
+    client.on('ready', () => {
+      isConnected = true;
+      console.log('✅ Redis client ready and connected!');
+    });
 
-  client.on('error', (err) => {
+    client.on('error', (err) => {
+      isConnected = false;
+      console.warn('⚠️ Redis connection error/offline:', err.message || err);
+    });
+
+    client.on('end', () => {
+      isConnected = false;
+      console.log('🔌 Redis connection closed.');
+    });
+
+    // Asynchronously connect the client
+    client.connect().catch((err) => {
+      console.warn('⚠️ Failed to connect to Redis on startup. Fallback cache mode active.', err.message);
+    });
+  } catch (err) {
+    client = null;
     isConnected = false;
-    console.warn('⚠️ Redis connection error/offline:', err.message || err);
-  });
-
-  client.on('end', () => {
-    isConnected = false;
-    console.log('🔌 Redis connection closed.');
-  });
-
-  // Asynchronously connect the client
-  client.connect().catch((err) => {
-    console.warn('⚠️ Failed to connect to Redis on startup. Fallback cache mode active.', err.message);
-  });
+    console.error('❌ Failed to create Redis client instance. Fallback cache mode active. Error:', err.message || err);
+  }
 }
 
 // Helper: check if we should query Redis
