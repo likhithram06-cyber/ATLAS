@@ -4,6 +4,7 @@ import { useNavigate, useParams, Routes, Route, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart2, Phone, ArrowLeft, ChevronRight, User, TrendingUp, Search, ShieldCheck } from 'lucide-react';
 import api from '../../api/axios';
+import AddPropertyPage from './AddPropertyPage';
 
 function formatPrice(price) {
   if (!price) return '—';
@@ -164,6 +165,13 @@ function DashboardHome({ search }) {
           >
             PROPERTIES ({filteredProperties.length})
           </button>
+          {activeTab === 'properties' && (
+            <div style={{ marginLeft: '1rem' }}>
+              <button onClick={() => navigate('add')} style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', background: 'var(--rose)', color: 'white' }}>
+                + Add Property
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

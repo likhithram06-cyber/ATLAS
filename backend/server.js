@@ -19,6 +19,8 @@ connectDB();
 // Middleware: parse JSON bodies and allow cross-origin requests from frontend
 app.use(cors());
 app.use(express.json());
+// Serve uploaded images statically
+app.use('/uploads', express.static('uploads'));
 
 // Mount all route groups under /api
 app.use('/api/auth',        authRoutes);

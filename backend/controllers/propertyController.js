@@ -63,7 +63,11 @@ exports.getPropertyById = async (req, res) => {
 // POST a new property (admin only)
 exports.createProperty = async (req, res) => {
   try {
-    const property = await Property.create(req.body);
+    // Extract image file paths from multer upload
+    const imagePaths = (req.files || []).map(file => `/uploads/${file.filename}`);
+    // Merge image paths with other property data
+    const propertyData = { ...req.body, images: imagePaths };
+    const property = await Property.create(propertyData);
     res.status(201).json(property);
   } catch (err) {
     res.status(500).json({ error: err.message });
