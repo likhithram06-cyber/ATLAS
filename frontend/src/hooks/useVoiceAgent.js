@@ -9,6 +9,9 @@ export function useVoiceAgent(property) {
   const [transcript,   setTranscript]   = useState([]);   // [{role, text}]
 
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState(defaultLanguage);
 
   const [intentScore,  setIntentScore]  = useState(0);
   const [error,        setError]        = useState('');
@@ -36,15 +39,8 @@ export function useVoiceAgent(property) {
   utterance.onend   = () => setIsSpeaking(false);
   window.speechSynthesis.speak(utterance);
 }
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate  = 0.95;
-    utterance.pitch = 1.05;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend   = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-  }
+
+
 
   // Starts recording audio from mic
   async function startListening() {

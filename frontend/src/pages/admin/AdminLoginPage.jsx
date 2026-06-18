@@ -7,9 +7,9 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 
 export default function AdminLoginPage() {
-  const [form,    setForm]    = useState({ adminId: '', password: '' });
+  const [form, setForm] = useState({ adminId: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [error, setError] = useState('');
   const { adminLogin } = useAuth();
   const navigate = useNavigate();
 
@@ -60,8 +60,8 @@ export default function AdminLoginPage() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {[
-            { id: 'admin-id',   name: 'adminId',  icon: <User size={15} />, label: 'Admin ID',  type: 'text',     placeholder: 'atlas_admin' },
-            { id: 'admin-pass', name: 'password', icon: <Lock size={15} />, label: 'Password',  type: 'password', placeholder: '••••••••' },
+            { id: 'admin-id', name: 'adminId', icon: <User size={15} />, label: 'Admin ID', type: 'text', placeholder: 'atlas_admin' },
+            { id: 'admin-pass', name: 'password', icon: <Lock size={15} />, label: 'Password', type: 'password', placeholder: '••••••••' },
           ].map(f => (
             <div key={f.name}>
               <label htmlFor={f.id} className="label" style={{ display: 'block', marginBottom: '0.35rem' }}>{f.label}</label>
