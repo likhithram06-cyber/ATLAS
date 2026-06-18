@@ -214,9 +214,9 @@ exports.voiceWebhook = async (req, res) => {
     if (audioPlayed && audioPublicUrl) {
       twiml.play(audioPublicUrl);
     } else {
-      console.log('[voiceWebhook] Playing built-in Twilio Telugu TTS (Polly.Chitra)');
+      console.log('[voiceWebhook] Playing built-in Twilio Telugu TTS (Google.te-IN-Standard-A)');
       twiml.say(
-        { voice: 'Polly.Chitra', language: 'te-IN' },
+        { voice: 'Google.te-IN-Standard-A', language: 'te-IN' },
         xmlEscape(greetingText)
       );
     }
@@ -234,12 +234,12 @@ exports.voiceWebhook = async (req, res) => {
     });
 
     gather.say(
-      { voice: 'Polly.Chitra', language: 'te-IN' },
+      { voice: 'Google.te-IN-Standard-A', language: 'te-IN' },
       xmlEscape('దయచేసి మీ ప్రశ్నను అడగండి లేదా కీప్యాడ్‌లో ఏదైనా బటన్ నొక్కండి.')
     );
 
     // Fallback if caller says/does nothing
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape('క్షమించండి, మాకు ఎటువంటి స్పందన రాలేదు. సెలవు!'));
+    twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, xmlEscape('క్షమించండి, మాకు ఎటువంటి స్పందన రాలేదు. సెలవు!'));
     twiml.hangup();
 
     const twimlStr = twiml.toString();
@@ -253,7 +253,7 @@ exports.voiceWebhook = async (req, res) => {
     // Fallback error-handler response
     const { VoiceResponse } = twilio.twiml;
     const fallbackTwiml = new VoiceResponse();
-    fallbackTwiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape('సాంకేతిక లోపం ఏర్పడింది. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి.'));
+    fallbackTwiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, xmlEscape('సాంకేతిక లోపం ఏర్పడింది. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి.'));
     fallbackTwiml.hangup();
     
     const fallbackStr = fallbackTwiml.toString();
@@ -282,7 +282,7 @@ exports.processInput = async (req, res) => {
   // Handle DTMF Keypress (DTMF keypad input)
   if (digits) {
     console.log(`[processInput] User pressed DTMF key: ${digits}. Prompting them to speak.`);
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape("మీరు కీప్యాడ్ బటన్ నొక్కారు. దయచేసి మీ ప్రశ్నను నోటితో అడగండి."));
+    twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, xmlEscape("మీరు కీప్యాడ్ బటన్ నొక్కారు. దయచేసి మీ ప్రశ్నను నోటితో అడగండి."));
     
     // Re-trigger Gather for speech/DTMF
     const activeBaseUrl = process.env.BASE_URL || '';
@@ -303,7 +303,7 @@ exports.processInput = async (req, res) => {
   // Handle empty input
   if (!speechResult.trim()) {
     console.log('[processInput] Empty speech result. Asking caller to speak again.');
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape("నేను వినలేకపోయాను. దయచేసి మళ్ళీ మాట్లాడండి."));
+    twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, xmlEscape("నేను వినలేకపోయాను. దయచేసి మళ్ళీ మాట్లాడండి."));
     const activeBaseUrl = process.env.BASE_URL || '';
     twiml.gather({
       input: 'speech dtmf',
@@ -407,7 +407,7 @@ exports.processInput = async (req, res) => {
     }
 
     // 6. Respond via Twilio using supported voice
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape(replyText));
+    twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, xmlEscape(replyText));
 
     // Keep the call open to gather the next response
     const activeBaseUrl = process.env.BASE_URL || '';
@@ -423,7 +423,7 @@ exports.processInput = async (req, res) => {
 
   } catch (err) {
     console.error('[processInput] Uncaught exception in processInput handler:', err);
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape("సాంకేతిక లోపం. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి."));
+    twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, xmlEscape("సాంకేతిక లోపం. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి."));
     twiml.hangup();
   }
 
@@ -497,7 +497,7 @@ exports.voiceWebhookStream = async (req, res) => {
     stream.parameter({ name: 'callerPhone', value: callerPhone });
   }
 
-  twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, "సాంకేతిక అనుసంధానం చేయడంలో సమస్య ఎదురైంది. దయచేసి తర్వాత ప్రయత్నించండి.");
+  twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, "సాంకేతిక అనుసంధానం చేయడంలో సమస్య ఎదురైంది. దయచేసి తర్వాత ప్రయత్నించండి.");
   twiml.hangup();
 
   console.log("[voiceWebhookStream] Stream URL:", streamUrl);
@@ -509,7 +509,7 @@ exports.streamEnded = async (req, res) => {
   const { VoiceResponse } = twilio.twiml;
   const twiml = new VoiceResponse();
   console.log("[streamEnded] Connect stream ended. Twilio request body:", req.body);
-  twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, "కాల్ ముగిసింది. ధన్యవాదాలు!");
+  twiml.say({ voice: 'Google.te-IN-Standard-A', language: 'te-IN' }, "కాల్ ముగిసింది. ధన్యవాదాలు!");
   twiml.hangup();
   res.type('text/xml');
   return res.send(twiml.toString());
