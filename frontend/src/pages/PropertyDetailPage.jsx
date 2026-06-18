@@ -137,6 +137,24 @@ export default function PropertyDetailPage() {
               {property.description}
             </p>
 
+            {/* Static Location Map */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '0.85rem', color: 'var(--cream)', marginBottom: '0.75rem', fontFamily: 'var(--font-label)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Property Location
+              </h3>
+              <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+                <iframe
+                  title="Property Location Map"
+                  width="100%"
+                  height="220"
+                  style={{ border: 0, display: 'block', filter: 'invert(90%) hue-rotate(180deg) grayscale(40%)' }}
+                  loading="lazy"
+                  allowFullScreen
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(property.location)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                />
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button
                 id="talk-to-agent-btn"

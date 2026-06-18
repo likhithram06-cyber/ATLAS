@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 export default function PhotoCarousel({ images = [] }) {
   const [index, setIndex] = useState(0);
 
-  const list = images.length > 0 ? images : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
+  const list = images.length > 0 ? images.map(getImageUrl) : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800'];
 
   function handlePrev() {
     setIndex(prev => (prev - 1 + list.length) % list.length);

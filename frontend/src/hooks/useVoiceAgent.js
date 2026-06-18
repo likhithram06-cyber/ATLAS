@@ -2,11 +2,14 @@
 import { useState, useRef } from 'react';
 import { getAgentResponse, finalizeConversation } from '../api/agentApi';
 
+// Add a new state for detected language (default 'en')
+const defaultLanguage = 'en';
+
 export function useVoiceAgent(property) {
   const [transcript,   setTranscript]   = useState([]);   // [{role, text}]
-  const [isListening,  setIsListening]  = useState(false);
-  const [isSpeaking,   setIsSpeaking]   = useState(false);
-  const [isThinking,   setIsThinking]   = useState(false);
+
+  const [isListening, setIsListening] = useState(false);
+
   const [intentScore,  setIntentScore]  = useState(0);
   const [error,        setError]        = useState('');
 
@@ -19,7 +22,20 @@ export function useVoiceAgent(property) {
   }
 
   // Speaks text aloud using browser Web Speech API
-  function speak(text) {
+  function speak(text, lang = defaultLanguage) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate  = 0.95;
+  utterance.pitch = 1.05;
+  // Choose voice based on language if possible
+  const voices = window.speechSynthesis.getVoices();
+  const matchingVoice = voices.find(v => v.lang.startsWith(lang));
+  if (matchingVoice) utterance.voice = matchingVoice;
+  utterance.onstart = () => setIsSpeaking(true);
+  utterance.onend   = () => setIsSpeaking(false);
+  window.speechSynthesis.speak(utterance);
+}
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -64,21 +80,20 @@ export function useVoiceAgent(property) {
 
     try {
       const res = await getAgentResponse(blob, property._id, transcript);
-      const { transcription, reply } = res.data;
+      const { transcription, reply, language } = res.data;
 
       if (!transcription.trim()) {
         setIsThinking(false);
         return;
       }
 
-      // Update transcript with user query and assistant answer
-      setTranscript(prev => [
-        ...prev,
-        { role: 'user', text: transcription },
-        { role: 'assistant', text: reply }
-      ]);
-
-      speak(reply);
+      // Update detected language state (fallback to 'en' if missing)
+      setDetectedLanguage(language || defaultLanguage);
+      // Add user message to transcript
+      addMessage('user', transcription);
+      // Add assistant reply to transcript and speak it with language-aware voice
+      addMessage('assistant', reply);
+      speak(reply, language || defaultLanguage);
     } catch (err) {
       console.error(err);
       setError('Failed to communicate with AI agent.');

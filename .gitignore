@@ -34,6 +34,8 @@ lerna-debug.log*
 
 # Temporary uploads/caches
 temp_uploads/
+tmp/
+backend/uploads/
 .vite/
 
 # Dataset images (downloaded per machine via setup.js or download_dataset.py)

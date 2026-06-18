@@ -26,6 +26,7 @@ exports.respond = async (req, res) => {
     }
 
     // Step 1: Transcribe via Groq Whisper or fallback
+    let detectedLanguage = 'en';
     let userText = '';
     if (HAS_GROQ) {
       const form = new FormData();
@@ -39,6 +40,10 @@ exports.respond = async (req, res) => {
         }
       });
       userText = transcriptionRes.data.text || '';
+      // Capture detected language from Groq response (if provided)
+      if (transcriptionRes.data && transcriptionRes.data.language) {
+        detectedLanguage = transcriptionRes.data.language;
+      }
     } else {
       userText = 'Please provide details about the price and a site visit.';
       console.log('[Groq Mock] Whisper transcription bypassed, returning dummy text.');
@@ -85,7 +90,8 @@ If asked to book, say the agent will follow up shortly.`;
       }
     }
 
-    res.json({ transcription: userText, reply });
+    // Respond with detected language (default already set to 'en')
+    res.json({ transcription: userText, reply, language: detectedLanguage });
   } catch (err) {
     console.error('Agent respond error:', err);
     res.status(500).json({ error: err.message });

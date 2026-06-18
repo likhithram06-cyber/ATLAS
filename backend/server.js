@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express    = require('express');
 const cors       = require('cors');
+const path       = require('path');
 const connectDB  = require('./config/db');
 
 const authRoutes       = require('./routes/authRoutes');
@@ -19,8 +20,9 @@ connectDB();
 // Middleware: parse JSON bodies and allow cross-origin requests from frontend
 app.use(cors());
 app.use(express.json());
-// Serve uploaded images statically
-app.use('/uploads', express.static('uploads'));
+// Serve uploaded images (admin uploads + seeded dataset) statically
+app.use('/uploads/dataset', express.static(path.join(__dirname, '../tmp/houses-dataset/Houses Dataset')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Mount all route groups under /api
 app.use('/api/auth',        authRoutes);

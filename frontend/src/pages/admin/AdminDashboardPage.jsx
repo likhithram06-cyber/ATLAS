@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { BarChart2, Phone, ArrowLeft, ChevronRight, User, TrendingUp, Search, ShieldCheck } from 'lucide-react';
 import api from '../../api/axios';
 import AddPropertyPage from './AddPropertyPage';
+import { getImageUrl } from '../../utils/imageUrl';
 
 function formatPrice(price) {
   if (!price) return '—';
@@ -43,7 +44,7 @@ function ImageCarousel({ images, alt }) {
   return (
     <div style={{ height: '180px', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--border)' }}>
       <img
-        src={images[index]}
+        src={getImageUrl(images[index])}
         alt={alt}
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
@@ -248,7 +249,7 @@ function DashboardHome({ search }) {
               >
                 <div style={{ height: '160px', overflow: 'hidden', position: 'relative' }}>
                   <img
-                    src={p.images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600'}
+                    src={getImageUrl(p.images?.[0])}
                     alt={p.title}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
@@ -624,6 +625,7 @@ export default function AdminDashboardPage() {
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '5.5rem 2rem 4rem' }}>
         <Routes>
           <Route index element={<DashboardHome search={search} />} />
+          <Route path="add"                   element={<AddPropertyPage />} />
           <Route path="property/:propId"      element={<PropertyEnquiries />} />
           <Route path="enquiry/:enquiryId"    element={<CallDetail />} />
         </Routes>

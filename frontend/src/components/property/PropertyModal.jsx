@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, BedDouble, ArrowRight } from 'lucide-react';
+import { getImageUrl } from '../../utils/imageUrl';
 
 function formatPrice(price) {
   if (price >= 10000000) return `₹${(price / 10000000).toFixed(1)} Cr`;
@@ -66,7 +67,7 @@ export default function PropertyModal({ property, onClose }) {
           {/* Cover image */}
           <div style={{ position: 'relative', height: '280px' }}>
             <img
-              src={images?.[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700'}
+              src={getImageUrl(images?.[0])}
               alt={title}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />

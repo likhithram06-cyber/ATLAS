@@ -4,6 +4,7 @@
 
 import { Heart, MapPin, BedDouble, Maximize2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { getImageUrl } from "../../utils/imageUrl";
 
 // What this does: formats a number like 7500000 → "₹75 L" or "₹1.5 Cr"
 function formatPrice(price) {
@@ -47,7 +48,7 @@ export default function PropertyCard({ property, onClick, savedIds = [], onSaveT
       {/* Image */}
       <div style={{ position: "relative", height: "220px", overflow: "hidden" }}>
         <img
-          src={property.images?.[0] || "/images/placeholder.jpg"}
+          src={getImageUrl(property.images?.[0])}
           alt={property.title}
           style={{
             width:      "100%",
