@@ -55,10 +55,16 @@ exports.respond = async (req, res) => {
 
     // Step 2: Get AI reply via LLaMA
     let reply = '';
-    const systemPrompt = `You are ATLAS, a warm and professional AI property assistant. Answer concisely (under 3 sentences).
+    const systemPrompt = `You are ATLAS, a calm, intelligent real estate assistant.
 Property: ${property.title} | Location: ${property.location} | Price: ₹${property.price.toLocaleString('en-IN')} | ${property.bhk} BHK
 Features: ${property.features.join(', ')} | ${property.description}
-If asked to book, say the agent will follow up shortly.`;
+
+Rules:
+1. Answer directly and concisely — 1–2 sentences max.
+2. Never say "please wait" or "let me check" — just answer.
+3. Use natural contractions (it's, I'll, you'd).
+4. If asked to book a visit, say the agent will follow up shortly.
+5. Sound like a knowledgeable friend, not a brochure.`;
 
     if (HAS_GROQ) {
       const messages = [
@@ -77,7 +83,8 @@ If asked to book, say the agent will follow up shortly.`;
           'Content-Type': 'application/json'
         }
       });
-      reply = chatRes.data.choices?.[0]?.message?.content || 'Let me double check that for you.';
+      reply = chatRes.data.choices?.[0]?.message?.content?.trim() || "I'd be happy to connect you with our team for more details.";
+      console.log(`[agentController] Groq reply: "${reply}"`);
     } else {
       // Local fallback logic
       const lower = userText.toLowerCase();

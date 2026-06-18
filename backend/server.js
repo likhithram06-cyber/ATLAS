@@ -18,7 +18,7 @@ for (const key of required) {
   }
 }
 if (process.env.BASE_URL.includes('localhost') || process.env.BASE_URL.includes('127.0.0.1')) {
-  console.warn('\n⚠️  WARNING: BASE_URL is set to localhost — Twilio cannot reach this. Set it to your ngrok HTTPS URL before making calls.\n');
+  console.warn('\n⚠️  WARNING: BASE_URL is set to localhost — Twilio cannot reach this server. Set BASE_URL to your Render HTTPS URL.\n');
 }
 
 const express    = require('express');
@@ -66,8 +66,8 @@ app.use('/api/call',        callRoutes);
 
 // Start listening — use http.createServer so we can attach the WebSocket server
 // for Twilio Media Streams on the same port as the Express app.
-// NOTE: Twilio sends Media Stream audio over WSS. ngrok automatically exposes the
-// same port for both HTTP and WSS, so no extra tunnel config is needed.
+// NOTE: Twilio sends Media Stream audio over WSS. Render exposes the same port
+// for both HTTP and WSS automatically — no extra configuration needed.
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const { handleMediaStream } = require('./services/mediaStreamHandler');

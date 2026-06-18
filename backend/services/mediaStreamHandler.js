@@ -1,124 +1,132 @@
-// What this file does: Real-time voice pipeline handler for Twilio Media Streams.
-// Bridges Twilio <-> Sarvam AI STT <-> Groq LLM <-> Sarvam AI TTS for low-latency,
-// multilingual (Telugu / Hindi / English / code-mixed) voice conversations.
-// Using the official sarvamai Node.js SDK.
+// What this file does: Real-time voice pipeline for Twilio Media Streams.
+// Pipeline: Twilio audio → Sarvam STT → Groq LLM (streaming) → Sarvam TTS → Twilio audio
 //
-// ── CONCURRENCY & ISOLATION CONSTRAINT ───────────────────────────────────────
-// NEVER store call-specific state in module-level variables — always scope to
-// the per-connection CallSession. Each connection creates its own isolated
-// session stored directly on the WebSocket object (ws.session = CallSession)
-// and kept inside block-scoped closures to guarantee correct call isolation.
+// DESIGN GOALS:
+//  • Natural, human-sounding responses — no filler, no "please wait"
+//  • First-word latency under 1.5 s (STT end → LLM first token → TTS first chunk)
+//  • Full barge-in support (caller can interrupt the agent mid-sentence)
+//  • Per-call isolation — all state is scoped to the CallSession closure
+//
+// ── CONCURRENCY CONSTRAINT ────────────────────────────────────────────────────
+// NEVER use module-level mutable state for call data.
+// Each WebSocket connection creates its own isolated CallSession object.
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use strict';
 
-const WebSocket = require('ws');
-const Property  = require('../models/Property');
-const CallRecord = require('../models/CallRecord');
-const alawmulaw = require('alawmulaw');
+const WebSocket    = require('ws');
+const Property     = require('../models/Property');
+const CallRecord   = require('../models/CallRecord');
+const alawmulaw    = require('alawmulaw');
 const { SarvamAIClient } = require('sarvamai');
 
 // ── Groq config ─────────────────────────────────────────────────────────────
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL   = 'llama3-8b-8192';
+// llama-3.1-8b-instant: Groq's fastest model — sub-200ms first-token on short prompts
+const GROQ_MODEL   = 'llama-3.1-8b-instant';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function formatPrice(price) {
-  if (!price) return 'price on request';
+  if (!price) return 'price available on request';
   if (price >= 10_000_000) return `${(price / 10_000_000).toFixed(1)} crore`;
-  if (price >= 100_000)   return `${(price / 100_000).toFixed(0)} lakh`;
-  return String(price.toLocaleString('en-IN'));
+  if (price >= 100_000)    return `${(price / 100_000).toFixed(0)} lakh`;
+  return price.toLocaleString('en-IN');
 }
 
+// ── Natural greeting — warm, direct, no corporate filler ────────────────────
 function buildGreeting(property) {
-  if (!property) return 'Hello! Welcome to ATLAS Real Estate. How can I help you today?';
-  return `Hello! Welcome to ATLAS. I am calling about ${property.title} in ${property.location}, priced at ${formatPrice(property.price)}. How can I help you today?`;
+  if (!property) {
+    return "Hi! I'm ATLAS, your real estate assistant. What can I help you with today?";
+  }
+  const price = formatPrice(property.price);
+  return `Hi! I'm ATLAS. I'm reaching out about ${property.title} in ${property.location} — it's listed at ₹${price}. What would you like to know?`;
 }
 
+// ── System prompt — natural human assistant persona ──────────────────────────
 function buildSystemPrompt(property) {
   const propInfo = property
-    ? `Property: "${property.title}" in ${property.location}, priced at ${formatPrice(property.price)}, ${property.bhk} BHK${property.sqft ? ', ' + property.sqft + ' sqft' : ''}.`
+    ? `Property on call: "${property.title}" in ${property.location}, ₹${formatPrice(property.price)}, ${property.bhk} BHK${property.sqft ? ', ' + property.sqft + ' sqft' : ''}${property.features?.length ? ', features: ' + property.features.join(', ') : ''}.`
     : 'Property details are currently unavailable.';
 
-  return `You are ATLAS, a warm, conversational real estate assistant on a live phone call.
+  return `You are ATLAS, a calm, intelligent real estate assistant on a live phone call.
 ${propInfo}
 
-CRITICAL RULES — follow these exactly:
-1. Reply ONLY in the language the caller used. Telugu -> Telugu, Hindi -> Hindi, code-mixed -> match naturally. Never default to English if they did not use it.
-2. Keep every reply to 1-3 SHORT sentences. This is a phone call — brevity is essential.
-3. Sound like a helpful friend, not a brochure. Use natural phrasing with commas for pacing.
-4. Only speak about the property, its details, and real-estate enquiries. You MUST NOT answer any other questions unrelated to the property or real estate. If the caller asks about unrelated topics (e.g., general knowledge, unrelated math, news, personal questions), politely decline to answer, stating that you can only help with questions about this property.
-5. If asked about price, location, BHK, or features, answer directly from the property info.
-6. If you do not know something about the property, say so naturally and offer to connect them with the team.
-7. End each response with a brief, natural question to continue the conversation.`;
+Your core rules — follow these exactly on every single reply:
+
+1. RESPOND IMMEDIATELY. Never say "please wait", "one moment", "hold on", "it's taking time", or any variation. Just answer.
+2. KEEP IT SHORT. 1–2 sentences maximum per reply. This is a phone call — people hate long monologues.
+3. SOUND HUMAN. Use contractions naturally ("I'll", "it's", "you'd", "we've"). Speak like a knowledgeable friend, not a brochure.
+4. ANSWER DIRECTLY. Start your reply with the answer, not with "Great question!" or "Sure, I can help with that."
+5. STAY ON TOPIC. Only answer questions about this property and real estate. For anything unrelated, politely say you can only help with property questions.
+6. MATCH THE CALLER'S LANGUAGE. If they speak Telugu, respond in Telugu. Hindi → Hindi. Code-mixed → match naturally. Default to English if unsure.
+7. DON'T PRETEND TO BE HUMAN if directly asked whether you're AI — be honest but brief.
+8. END WITH A NATURAL FOLLOW-UP — a short question to keep the conversation moving.
+
+Examples of what NOT to say:
+❌ "Please wait while I look that up."
+❌ "That is a great question! Let me process that for you."
+❌ "I am an AI assistant and I will do my best to help."
+
+Examples of what to say:
+✓ "It's priced at 45 lakh. Would you like to schedule a visit?"
+✓ "The property has parking and a gym. Anything else?"
+✓ "I'll have the agent reach out to you — what's the best time?"`;
 }
 
-// ── Audio: Twilio mulaw 8kHz base64 -> PCM 16-bit LE 16kHz Buffer for Sarvam STT
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIO CONVERSION  Twilio mulaw 8kHz → PCM 16-bit LE 16kHz for Sarvam STT
+// ─────────────────────────────────────────────────────────────────────────────
 function twilioMulawToSarvamPCM(base64Payload) {
-  try {
-    const mulawBytes = Buffer.from(base64Payload, 'base64');
-    const inputSize = mulawBytes.length;
+  const mulawBytes = Buffer.from(base64Payload, 'base64');
+  const pcm8k      = alawmulaw.mulaw.decode(mulawBytes);  // Int16Array @ 8kHz
 
-    // Decode u-law -> linear 16-bit PCM at 8kHz
-    const pcm8k = alawmulaw.mulaw.decode(mulawBytes); // returns Int16Array
-
-    // Upsample 8kHz -> 16kHz by duplicating each sample (naive but fine for speech STT)
-    const pcm16k = new Int16Array(pcm8k.length * 2);
-    for (let i = 0; i < pcm8k.length; i++) {
-      pcm16k[i * 2]     = pcm8k[i];
-      pcm16k[i * 2 + 1] = pcm8k[i];
-    }
-    const outputBuffer = Buffer.from(pcm16k.buffer);
-    const outputSize = outputBuffer.length;
-
-    // Diagnostic log for the first few audio frames to confirm conversion and sizes
-    if (!twilioMulawToSarvamPCM.logCount) twilioMulawToSarvamPCM.logCount = 0;
-    if (twilioMulawToSarvamPCM.logCount < 5) {
-      twilioMulawToSarvamPCM.logCount++;
-      console.log(`[audio-conv] twilioMulawToSarvamPCM: input size=${inputSize} bytes, output size=${outputSize} bytes`);
-    }
-
-    return outputBuffer;
-  } catch (err) {
-    console.error('[audio-conv] Failed to convert Twilio mulaw to Sarvam PCM:', err);
-    throw err;
+  // Naive 8kHz → 16kHz upsample by sample duplication (fine for speech STT)
+  const pcm16k = new Int16Array(pcm8k.length * 2);
+  for (let i = 0; i < pcm8k.length; i++) {
+    pcm16k[i * 2]     = pcm8k[i];
+    pcm16k[i * 2 + 1] = pcm8k[i];
   }
+  return Buffer.from(pcm16k.buffer);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TWILIO AUDIO HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 function sendAudioToTwilio(twilioWs, streamSid, base64MulawPayload) {
+  if (twilioWs.readyState !== WebSocket.OPEN) return;
   try {
-    if (twilioWs.readyState !== WebSocket.OPEN) return;
     twilioWs.send(JSON.stringify({
-      event:     'media',
+      event:    'media',
       streamSid,
-      media:     { payload: base64MulawPayload },
+      media:    { payload: base64MulawPayload },
     }));
   } catch (err) {
-    console.error('[twilio-send] Failed to send media frame to Twilio:', err.message);
+    console.error('[twilio-send] Failed to send audio frame:', err.message);
   }
 }
 
 function clearTwilioAudio(twilioWs, streamSid) {
+  if (twilioWs.readyState !== WebSocket.OPEN) return;
   try {
-    if (twilioWs.readyState !== WebSocket.OPEN) return;
     twilioWs.send(JSON.stringify({ event: 'clear', streamSid }));
-    console.log('[barge-in] Sent clear to Twilio — agent audio interrupted');
+    console.log('[barge-in] Cleared Twilio audio buffer — agent interrupted');
   } catch (err) {
-    console.error('[twilio-clear] Failed to send clear message to Twilio:', err.message);
+    console.error('[twilio-clear] Failed to send clear:', err.message);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GROQ STREAMING — async generator that yields sentence-level text chunks
+// GROQ STREAMING — async generator, yields sentence-level chunks immediately
 // ─────────────────────────────────────────────────────────────────────────────
 async function* streamGroqResponse(messages) {
   const t0 = Date.now();
-  let firstToken = true;
+  let firstTokenLogged = false;
 
-  console.log('[groq] Initiating chat completions request...');
+  console.log('[groq] Starting streaming request to', GROQ_MODEL);
+
   let response;
   try {
     response = await fetch(GROQ_API_URL, {
@@ -131,42 +139,39 @@ async function* streamGroqResponse(messages) {
         model:       GROQ_MODEL,
         messages,
         stream:      true,
-        max_tokens:  150,
-        temperature: 0.7,
+        max_tokens:  80,        // concise phone answers — shorter = faster TTS
+        temperature: 0.65,
       }),
     });
-  } catch (fetchErr) {
-    console.error('[groq] Network error making Groq API request:', fetchErr);
-    throw fetchErr;
+  } catch (err) {
+    console.error('[groq] Network error:', err.message);
+    throw err;
   }
 
   if (!response.ok) {
-    const errText = await response.text();
-    console.error(`[groq] API error response ${response.status}:`, errText);
-    throw new Error(`Groq API error ${response.status}: ${errText}`);
+    const errBody = await response.text();
+    console.error(`[groq] HTTP ${response.status}:`, errBody);
+    throw new Error(`Groq error ${response.status}`);
   }
 
-  console.log('[groq] Stream request succeeded (status 200). Beginning token stream parsing...');
-  const reader  = response.body.getReader();
-  const decoder = new TextDecoder();
+  const reader    = response.body.getReader();
+  const decoder   = new TextDecoder();
   let   sseBuffer = '';
-  let   textBuf   = '';  // accumulate tokens; flush per sentence/clause
+  let   textBuf   = '';
 
   while (true) {
     let done, value;
     try {
-      const result = await reader.read();
-      done = result.done;
-      value = result.value;
+      ({ done, value } = await reader.read());
     } catch (readErr) {
-      console.error('[groq] Error reading from stream body:', readErr.message);
+      console.error('[groq] Stream read error:', readErr.message);
       break;
     }
     if (done) break;
 
     sseBuffer += decoder.decode(value, { stream: true });
     const lines = sseBuffer.split('\n');
-    sseBuffer   = lines.pop(); // keep the potentially-incomplete last line
+    sseBuffer   = lines.pop();
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -178,150 +183,130 @@ async function* streamGroqResponse(messages) {
         const delta = json.choices?.[0]?.delta?.content;
         if (!delta) continue;
 
-        if (firstToken) {
-          console.log(`[groq] First token received in ${Date.now() - t0}ms`);
-          firstToken = false;
+        if (!firstTokenLogged) {
+          console.log(`[groq] ⚡ First token in ${Date.now() - t0}ms`);
+          firstTokenLogged = true;
         }
 
         textBuf += delta;
 
-        // Flush complete sentence/clause (ends with . ! ? , — or Devanagari danda |)
-        // Yielding early means TTS can start before Groq finishes the full reply.
+        // Flush at sentence boundaries so TTS can start while LLM is still running
         const match = textBuf.match(/^([\s\S]*?[.!?,।|])\s/);
         if (match) {
           const chunk = match[1].trim();
           textBuf = textBuf.slice(match[0].length);
           if (chunk) {
-            console.log(`[groq] Yielding text clause: "${chunk}"`);
+            console.log(`[groq] → Sentence chunk: "${chunk}"`);
             yield chunk;
           }
         }
-      } catch (jsonErr) {
-        // Malformed SSE line — skip silently
-      }
+      } catch (_) { /* malformed SSE line — skip */ }
     }
   }
 
-  // Flush any remaining text that didn't end with punctuation
-  if (textBuf.trim()) {
-    console.log(`[groq] Yielding remaining text: "${textBuf.trim()}"`);
-    yield textBuf.trim();
+  // Flush any remaining text
+  const remaining = textBuf.trim();
+  if (remaining) {
+    console.log(`[groq] → Final chunk: "${remaining}"`);
+    yield remaining;
   }
+
+  console.log(`[groq] ✅ Stream complete in ${Date.now() - t0}ms`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SPEAK TEXT — convert one text chunk, await until fully spoken
+// SPEAK TEXT — sends one text chunk to Sarvam TTS, resolves when spoken
 // ─────────────────────────────────────────────────────────────────────────────
 function speakText(text, session) {
   return new Promise((resolve) => {
     if (!session.ttsSocket || session.ttsSocket.readyState !== 1) {
-      console.warn('[tts] Socket not open, cannot speak text:', text);
+      console.warn('[tts] Socket not open, skipping text:', text);
       return resolve();
     }
 
-    session.ttsResolve = resolve;
+    console.log(`[tts] → Synthesizing: "${text}"`);
+    session.ttsResolve    = resolve;
     session.isTtsSpeaking = true;
-    console.log(`[tts] Sending text to synthesize: "${text}"`);
+
     try {
       session.ttsSocket.convert(text);
     } catch (err) {
-      console.error('[tts-convert] Failed to call session.ttsSocket.convert:', err.message);
+      console.error('[tts-convert] convert() failed:', err.message);
       session.isTtsSpeaking = false;
-      session.ttsResolve = null;
+      session.ttsResolve    = null;
       resolve();
     }
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FINAL UTTERANCE HANDLER — runs after STT signals end-of-speech
+// FINAL UTTERANCE HANDLER — runs after Sarvam STT signals end-of-speech
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleFinalUtterance(utterance, session, twilioWs) {
-  console.log(`[stt] Final utterance: "${utterance}"`);
+  const t0 = Date.now();
+  console.log(`[pipeline] 🎤 Caller said: "${utterance}"`);
   session.conversationHistory.push({ role: 'user', content: utterance });
 
-  // Push caller utterance to DB CallRecord
+  // Persist caller utterance to DB
   if (session.recordId) {
-    try {
-      await CallRecord.findByIdAndUpdate(session.recordId, {
-        $push: {
-          transcript: {
-            speaker: 'caller',
-            text: utterance,
-            timestamp: new Date(),
-          }
-        }
-      });
-      console.log('[stt] Persisted caller utterance to DB');
-    } catch (dbErr) {
-      console.error('[stt-db] Failed to push caller utterance to DB:', dbErr.message);
-    }
+    CallRecord.findByIdAndUpdate(session.recordId, {
+      $push: { transcript: { speaker: 'caller', text: utterance, timestamp: new Date() } }
+    }).catch((err) => console.warn('[db] Caller utterance save failed:', err.message));
   }
 
   const messages = [
     { role: 'system', content: buildSystemPrompt(session.property) },
-    ...session.conversationHistory,
+    ...session.conversationHistory.slice(-12),  // keep last 6 exchanges
   ];
 
   let agentReply = '';
+  const llmStart = Date.now();
 
   try {
     for await (const chunk of streamGroqResponse(messages)) {
-      // If caller interrupted mid-reply, stop sending
       if (session.bargedIn) {
-        console.log('[barge-in] LLM stream aborted mid-sentence');
+        console.log('[barge-in] LLM stream stopped — caller interrupted');
         break;
       }
 
-      // Check if language needs to be updated based on detected language of utterance
+      // Dynamically reconfigure TTS language if caller switched languages
       if (session.detectedLanguage && session.detectedLanguage !== session.currentTtsLang) {
-        console.log(`[tts] Detected language change: ${session.currentTtsLang} -> ${session.detectedLanguage}`);
+        console.log(`[tts] Language switch: ${session.currentTtsLang} → ${session.detectedLanguage}`);
         session.currentTtsLang = session.detectedLanguage;
-        if (session.ttsSocket) {
-          try {
-            session.ttsSocket.configureConnection({
-              target_language_code: session.detectedLanguage,
-              speaker: "aditya",
-              model: "bulbul:v3",
-              speech_sample_rate: 8000,
-              output_audio_codec: "mulaw",
-            });
-          } catch (configErr) {
-            console.error('[tts-reconfig] Failed to reconfigure TTS target language:', configErr.message);
-          }
+        try {
+          session.ttsSocket.configureConnection({
+            target_language_code: session.detectedLanguage,
+            speaker:              'aditya',
+            model:                'bulbul:v3',
+            speech_sample_rate:   8000,
+            output_audio_codec:   'mulaw',
+          });
+        } catch (e) {
+          console.error('[tts-reconfig] Failed:', e.message);
         }
       }
 
-      // Send this sentence to TTS immediately (overlap LLM + TTS latency)
+      // Pipe chunk to TTS immediately — overlaps LLM + TTS latency
       await speakText(chunk, session);
       agentReply += (agentReply ? ' ' : '') + chunk;
 
       if (session.bargedIn) break;
     }
   } catch (err) {
-    console.error('[pipeline] LLM/TTS error:', err.message);
+    console.error('[pipeline] LLM/TTS pipeline error:', err.message);
   }
 
-  // Record agent reply in history even if partially spoken
+  const replyTime = Date.now() - t0;
+  console.log(`[pipeline] ✅ Full reply delivered in ${replyTime}ms — "${agentReply.trim()}"`);
+
   if (agentReply.trim()) {
     session.conversationHistory.push({ role: 'assistant', content: agentReply.trim() });
 
-    // Push agent reply to DB CallRecord
+    // Persist agent reply to DB
     if (session.recordId) {
-      try {
-        await CallRecord.findByIdAndUpdate(session.recordId, {
-          $push: {
-            transcript: {
-              speaker: 'agent',
-              text: agentReply.trim(),
-              timestamp: new Date(),
-            }
-          }
-        });
-        console.log('[pipeline] Persisted agent reply to DB');
-      } catch (dbErr) {
-        console.error('[pipeline-db] Failed to push agent reply to DB:', dbErr.message);
-      }
+      CallRecord.findByIdAndUpdate(session.recordId, {
+        $push: { transcript: { speaker: 'agent', text: agentReply.trim(), timestamp: new Date() } }
+      }).catch((err) => console.warn('[db] Agent reply save failed:', err.message));
     }
   }
 
@@ -330,199 +315,159 @@ async function handleFinalUtterance(utterance, session, twilioWs) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SARVAM SOCKETS SETUP
+// SARVAM SOCKETS SETUP — STT and TTS WebSocket connections
 // ─────────────────────────────────────────────────────────────────────────────
 async function initSarvamSockets(session, twilioWs) {
   const apiKey = process.env.SARVAM_API_KEY;
   if (!apiKey) {
-    console.error('[sarvam] SARVAM_API_KEY not set — voice pipeline will not function');
+    console.error('[sarvam] SARVAM_API_KEY not set — voice pipeline disabled');
     return;
   }
 
   const sarvam = new SarvamAIClient({ apiSubscriptionKey: apiKey });
 
-  try {
-    console.log('[sarvam] Connecting STT...');
-    const sttSocket = await sarvam.speechToTextStreaming.connect({
-      "Api-Subscription-Key": apiKey,
-      "language-code": "unknown",
-      model: "saarika:v2.5",
-      input_audio_codec: "pcm_s16le",
-      sample_rate: "16000",
-      vad_signals: true,
-      high_vad_sensitivity: true,
-    });
-    session.sttSocket = sttSocket;
-    await sttSocket.waitForOpen();
-    console.log('[stt] Sarvam STT WebSocket connected and opened successfully');
+  // ── STT (Speech-to-Text) ─────────────────────────────────────────────────
+  console.log('[stt] Connecting Sarvam STT...');
+  const sttSocket = await sarvam.speechToTextStreaming.connect({
+    'Api-Subscription-Key': apiKey,
+    'language-code':        'unknown',   // auto-detect Telugu/Hindi/English
+    model:                  'saarika:v2.5',
+    input_audio_codec:      'pcm_s16le',
+    sample_rate:            '16000',
+    vad_signals:            true,
+    high_vad_sensitivity:   true,
+  });
+  session.sttSocket = sttSocket;
+  await sttSocket.waitForOpen();
+  console.log('[stt] ✅ STT connected');
 
-    sttSocket.on('message', (msg) => {
-      try {
-        if (msg.type === 'events') {
-          const signal = msg.data?.signal_type;
-          console.log('[stt] Received event signal:', signal);
-          if (signal === 'START_SPEECH') {
-            console.log('[stt] Speech start detected');
-            if (session.isTtsSpeaking) {
-              session.bargedIn = true;
-              clearTwilioAudio(twilioWs, session.streamSid);
-              if (session.ttsSocket) {
-                try {
-                  session.ttsSocket.flush();
-                } catch (flushErr) {
-                  console.error('[tts-flush] Error calling ttsSocket.flush():', flushErr.message);
-                }
-              }
-              session.isTtsSpeaking = false;
-              if (session.ttsResolve) {
-                const resolve = session.ttsResolve;
-                session.ttsResolve = null;
-                resolve();
-              }
-              console.log('[barge-in] Interrupted agent speaking');
-            }
-          } else if (signal === 'END_SPEECH') {
-            console.log('[stt] Speech end detected');
-            if (session.currentTranscript && session.currentTranscript.trim().length >= 2) {
-              const utterance = session.currentTranscript.trim();
-              session.currentTranscript = ''; // reset for next turn
-              handleFinalUtterance(utterance, session, twilioWs).catch((err) => {
-                console.error('[stt-utterance] Error handling final utterance:', err.message);
-              });
-            }
-          }
-        } else if (msg.type === 'data') {
-          const transcript = msg.data?.transcript;
-          if (transcript) {
-            session.currentTranscript = transcript;
-            console.log(`[stt] Transcript update: "${transcript}"`);
-          }
-          if (msg.data?.language_code) {
-            session.detectedLanguage = msg.data.language_code;
-          }
-        }
-      } catch (msgErr) {
-        console.error('[stt-message-handler] Error handling STT socket message:', msgErr);
-      }
-    });
-
-    sttSocket.on('close', (event) => console.log('[stt] Sarvam STT connection closed, code:', event?.code || 'none'));
-    sttSocket.on('error', (err) => console.error('[stt] Sarvam STT error event:', err));
-
-  } catch (err) {
-    console.error('[stt] Failed to initialize STT socket:', err);
-    throw err;
-  }
-
-  try {
-    console.log('[sarvam] Connecting TTS...');
-    const ttsSocket = await sarvam.textToSpeechStreaming.connect({
-      "Api-Subscription-Key": apiKey,
-      model: "bulbul:v3",
-      send_completion_event: "true",
-    });
-    session.ttsSocket = ttsSocket;
-    await ttsSocket.waitForOpen();
-    console.log('[tts] Sarvam TTS WebSocket connected and opened successfully');
-
+  sttSocket.on('message', (msg) => {
     try {
-      ttsSocket.configureConnection({
-        target_language_code: "en-IN",
-        speaker: "aditya",
-        model: "bulbul:v3",
-        speech_sample_rate: 8000,
-        output_audio_codec: "mulaw",
-      });
-      console.log('[tts] Configured initial target language (en-IN) and mulaw output format');
-    } catch (confErr) {
-      console.error('[tts-config] Failed to send connection configuration:', confErr.message);
-      throw confErr;
-    }
+      if (msg.type === 'events') {
+        const signal = msg.data?.signal_type;
 
-    ttsSocket.on('message', (msg) => {
-      try {
-        if (session.bargedIn) return;
-
-        if (msg.type === 'audio') {
-          const audioB64 = msg.data?.audio;
-          if (audioB64) {
-            const audioSize = Buffer.from(audioB64, 'base64').length;
-            if (!ttsSocket.audioLogCount) ttsSocket.audioLogCount = 0;
-            if (ttsSocket.audioLogCount < 5) {
-              ttsSocket.audioLogCount++;
-              console.log(`[tts] Received audio frame: size=${audioSize} bytes`);
+        if (signal === 'START_SPEECH') {
+          console.log('[stt] 🎙️  Speech start');
+          // Barge-in: caller started speaking while agent was talking
+          if (session.isTtsSpeaking) {
+            session.bargedIn = true;
+            clearTwilioAudio(twilioWs, session.streamSid);
+            try { session.ttsSocket?.flush(); } catch (_) {}
+            session.isTtsSpeaking = false;
+            if (session.ttsResolve) {
+              const r = session.ttsResolve;
+              session.ttsResolve = null;
+              r();
             }
-            sendAudioToTwilio(twilioWs, session.streamSid, audioB64);
+            console.log('[barge-in] ✅ Agent interrupted');
           }
-        } else if (msg.type === 'event' && msg.data?.event_type === 'final') {
-          console.log('[tts] Finished speaking chunk');
-          session.isTtsSpeaking = false;
-          if (session.ttsResolve) {
-            const resolve = session.ttsResolve;
-            session.ttsResolve = null;
-            resolve();
-          }
-        } else if (msg.type === 'error') {
-          console.error('[tts] Error from server:', msg.data?.message);
-          session.isTtsSpeaking = false;
-          if (session.ttsResolve) {
-            const resolve = session.ttsResolve;
-            session.ttsResolve = null;
-            resolve();
+
+        } else if (signal === 'END_SPEECH') {
+          console.log('[stt] 🎙️  Speech end');
+          const utterance = (session.currentTranscript || '').trim();
+          session.currentTranscript = '';
+          if (utterance.length >= 2) {
+            handleFinalUtterance(utterance, session, twilioWs).catch((err) =>
+              console.error('[stt] handleFinalUtterance error:', err.message)
+            );
           }
         }
-      } catch (msgErr) {
-        console.error('[tts-message-handler] Error handling TTS socket message:', msgErr);
-      }
-    });
 
-    ttsSocket.on('close', (event) => {
-      console.log('[tts] Sarvam TTS connection closed, code:', event?.code || 'none');
-      session.isTtsSpeaking = false;
-      if (session.ttsResolve) {
-        const resolve = session.ttsResolve;
-        session.ttsResolve = null;
-        resolve();
+      } else if (msg.type === 'data') {
+        if (msg.data?.transcript) {
+          session.currentTranscript = msg.data.transcript;
+          // Only log every 5th update to avoid log spam
+          if (!session._sttLogCount) session._sttLogCount = 0;
+          if (++session._sttLogCount % 5 === 0) {
+            console.log(`[stt] Transcript: "${session.currentTranscript}"`);
+          }
+        }
+        if (msg.data?.language_code) {
+          session.detectedLanguage = msg.data.language_code;
+        }
       }
-    });
+    } catch (err) {
+      console.error('[stt-message] Handler error:', err);
+    }
+  });
 
-    ttsSocket.on('error', (err) => {
-      console.error('[tts] Sarvam TTS error event:', err);
-      session.isTtsSpeaking = false;
-      if (session.ttsResolve) {
-        const resolve = session.ttsResolve;
-        session.ttsResolve = null;
-        resolve();
+  sttSocket.on('close',  (e) => console.log('[stt] Connection closed, code:', e?.code));
+  sttSocket.on('error',  (e) => console.error('[stt] Error:', e));
+
+  // ── TTS (Text-to-Speech) ─────────────────────────────────────────────────
+  console.log('[tts] Connecting Sarvam TTS...');
+  const ttsSocket = await sarvam.textToSpeechStreaming.connect({
+    'Api-Subscription-Key': apiKey,
+    model:                  'bulbul:v3',
+    send_completion_event:  'true',
+  });
+  session.ttsSocket = ttsSocket;
+  await ttsSocket.waitForOpen();
+  console.log('[tts] ✅ TTS connected');
+
+  // Initial configuration — English (will reconfigure on language detection)
+  ttsSocket.configureConnection({
+    target_language_code: 'en-IN',
+    speaker:              'aditya',
+    model:                'bulbul:v3',
+    speech_sample_rate:   8000,
+    output_audio_codec:   'mulaw',
+  });
+  console.log('[tts] Configured: en-IN / aditya / mulaw @ 8kHz');
+
+  ttsSocket.on('message', (msg) => {
+    try {
+      if (session.bargedIn) return; // caller interrupted — drop this audio
+
+      if (msg.type === 'audio') {
+        const audioB64 = msg.data?.audio;
+        if (audioB64) {
+          sendAudioToTwilio(twilioWs, session.streamSid, audioB64);
+        }
+
+      } else if (msg.type === 'event' && msg.data?.event_type === 'final') {
+        console.log('[tts] ✅ Chunk playback complete');
+        session.isTtsSpeaking = false;
+        if (session.ttsResolve) {
+          const r = session.ttsResolve;
+          session.ttsResolve = null;
+          r();
+        }
+
+      } else if (msg.type === 'error') {
+        console.error('[tts] Server error:', msg.data?.message);
+        session.isTtsSpeaking = false;
+        if (session.ttsResolve) {
+          const r = session.ttsResolve;
+          session.ttsResolve = null;
+          r();
+        }
       }
-    });
+    } catch (err) {
+      console.error('[tts-message] Handler error:', err);
+    }
+  });
 
-  } catch (err) {
-    console.error('[tts] Failed to initialize TTS socket:', err);
-    throw err;
-  }
+  ttsSocket.on('close', (e) => {
+    console.log('[tts] Connection closed, code:', e?.code);
+    session.isTtsSpeaking = false;
+    if (session.ttsResolve) { const r = session.ttsResolve; session.ttsResolve = null; r(); }
+  });
+
+  ttsSocket.on('error', (e) => {
+    console.error('[tts] Error:', e);
+    session.isTtsSpeaking = false;
+    if (session.ttsResolve) { const r = session.ttsResolve; session.ttsResolve = null; r(); }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLEANUP — close all upstream connections when call ends
+// CLEANUP — close upstream connections when call ends
 // ─────────────────────────────────────────────────────────────────────────────
 function cleanup(session) {
-  try {
-    if (session.sttSocket) {
-      console.log('[cleanup] Closing Sarvam STT WebSocket');
-      session.sttSocket.close();
-    }
-  } catch (err) {
-    console.error('[cleanup] STT close error:', err.message);
-  }
-  try {
-    if (session.ttsSocket) {
-      console.log('[cleanup] Closing Sarvam TTS WebSocket');
-      session.ttsSocket.close();
-    }
-  } catch (err) {
-    console.error('[cleanup] TTS close error:', err.message);
-  }
-  console.log(`[media-stream] Session ended — callSid: ${session.callSid}, property: ${session.propertyId}`);
+  try { if (session.sttSocket) session.sttSocket.close(); } catch (_) {}
+  try { if (session.ttsSocket) session.ttsSocket.close(); } catch (_) {}
+  console.log(`[session] Ended — callSid: ${session.callSid}, property: ${session.propertyId}`);
 }
 
 async function finalizeCallRecord(session, status) {
@@ -530,24 +475,24 @@ async function finalizeCallRecord(session, status) {
   try {
     const record = await CallRecord.findById(session.recordId);
     if (record && record.status !== 'completed' && record.status !== 'failed') {
-      record.status = status;
+      record.status  = status;
       record.endedAt = new Date();
       await record.save();
-      console.log(`[db] Finalized CallRecord ${session.recordId} with status: ${status}`);
+      console.log(`[db] CallRecord ${session.recordId} finalized: ${status}`);
     }
   } catch (err) {
-    console.error('[db-finalize] Failed to finalize CallRecord:', err.message);
+    console.error('[db-finalize] Failed:', err.message);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN EXPORT
-// Called once per incoming Twilio Media Stream WebSocket connection from server.js
+// MAIN EXPORT — called once per incoming Twilio Media Stream WebSocket
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleMediaStream(twilioWs) {
-  console.log('[media-stream] New Twilio Media Stream connection established!');
+  const connectionStart = Date.now();
+  console.log('[media-stream] 🔌 New Twilio Media Stream connection');
 
-  // Create isolated CallSession for this connection
+  // Per-connection isolated session — NEVER module-level state
   const CallSession = {
     streamSid:           null,
     callSid:             null,
@@ -564,128 +509,119 @@ async function handleMediaStream(twilioWs) {
     conversationHistory: [],
     ttsResolve:          null,
     currentTtsLang:      'en-IN',
+    _sttLogCount:        0,
   };
 
-  // Store CallSession on the WebSocket object
   twilioWs.session = CallSession;
 
   twilioWs.on('message', async (raw) => {
     let msg;
-    try { 
-      msg = JSON.parse(raw.toString()); 
-    } catch (parseErr) {
-      console.error('[media-stream] Failed to parse raw Twilio WS message:', parseErr.message);
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch (e) {
+      console.error('[media-stream] Bad JSON from Twilio:', e.message);
       return;
     }
 
     try {
       switch (msg.event) {
 
+        // ── Connected ─────────────────────────────────────────────────────
         case 'connected':
-          console.log('[twilio] "connected" event received. Payload:', JSON.stringify(msg, null, 2));
+          console.log('[twilio] "connected" event received');
           break;
 
+        // ── Start ─────────────────────────────────────────────────────────
         case 'start': {
-          console.log('[twilio] "start" event received. Payload:', JSON.stringify(msg, null, 2));
-          CallSession.streamSid  = msg.streamSid;
-          CallSession.callSid    = msg.start?.callSid;
-          CallSession.propertyId = msg.start?.customParameters?.propertyId || null;
+          CallSession.streamSid   = msg.streamSid;
+          CallSession.callSid     = msg.start?.callSid;
+          CallSession.propertyId  = msg.start?.customParameters?.propertyId  || null;
           CallSession.callerPhone = msg.start?.customParameters?.callerPhone || null;
 
-          console.log(`[twilio] Stream details: SID=${CallSession.streamSid}, callSid=${CallSession.callSid}, propertyId=${CallSession.propertyId}, callerPhone=${CallSession.callerPhone}`);
+          console.log(`[twilio] 🚀 Stream started — SID: ${CallSession.streamSid}, callSid: ${CallSession.callSid}, propertyId: ${CallSession.propertyId}`);
 
-          // Create initial CallRecord document in MongoDB
+          // Create DB record
           try {
             const record = await CallRecord.create({
-              callSid: CallSession.callSid,
-              streamSid: CallSession.streamSid,
+              callSid:    CallSession.callSid,
+              streamSid:  CallSession.streamSid,
               propertyId: CallSession.propertyId,
               callerPhone: CallSession.callerPhone,
-              status: 'initiated',
-              startedAt: new Date(),
+              status:     'initiated',
+              startedAt:  new Date(),
             });
             CallSession.recordId = record._id;
-            console.log('[twilio-start] Created DB CallRecord with ID:', CallSession.recordId);
+            console.log('[db] CallRecord created:', CallSession.recordId);
           } catch (dbErr) {
-            console.error('[twilio-start] Failed to create DB CallRecord:', dbErr.message);
+            console.warn('[db] CallRecord create failed:', dbErr.message);
           }
 
-          // Load property from MongoDB for context
+          // Load property for LLM context
           if (CallSession.propertyId) {
             try {
               CallSession.property = await Property.findById(CallSession.propertyId).lean();
-              console.log('[twilio] Loaded context for property:', CallSession.property?.title);
+              console.log('[twilio] Property loaded:', CallSession.property?.title);
             } catch (e) {
-              console.warn('[twilio] Property lookup failed:', e.message);
+              console.warn('[twilio] Property fetch failed:', e.message);
             }
           }
 
-          // Open STT and TTS sockets immediately
+          // Open Sarvam STT + TTS sockets
           try {
             await initSarvamSockets(CallSession, twilioWs);
           } catch (initErr) {
-            console.error('[twilio-start] Failed to initialize Sarvam connections, closing session:', initErr.message);
+            console.error('[sarvam] Init failed — ending session:', initErr.message);
             await finalizeCallRecord(CallSession, 'failed');
             cleanup(CallSession);
             return;
           }
 
-          // Update status to in-progress
+          // Update DB status
           if (CallSession.recordId) {
-            try {
-              await CallRecord.findByIdAndUpdate(CallSession.recordId, { status: 'in-progress' });
-            } catch (dbErr) {
-              console.error('[twilio-start-db] Failed to update CallRecord status to in-progress:', dbErr.message);
-            }
+            CallRecord.findByIdAndUpdate(CallSession.recordId, { status: 'in-progress' })
+              .catch((e) => console.warn('[db] Status update failed:', e.message));
           }
 
-          // Speak greeting without waiting for caller (agent speaks first)
-          const greetingText = buildGreeting(CallSession.property);
-          console.log(`[twilio] Speaking greeting: "${greetingText}"`);
-          
-          speakText(greetingText, CallSession).then(async () => {
-            CallSession.conversationHistory.push({ role: 'assistant', content: greetingText });
+          // Speak greeting immediately — agent talks first
+          const greeting = buildGreeting(CallSession.property);
+          console.log(`[twilio] 🗣️  Speaking greeting: "${greeting}"`);
+
+          speakText(greeting, CallSession).then(async () => {
+            CallSession.conversationHistory.push({ role: 'assistant', content: greeting });
             if (CallSession.recordId) {
-              try {
-                await CallRecord.findByIdAndUpdate(CallSession.recordId, {
-                  $push: {
-                    transcript: {
-                      speaker: 'agent',
-                      text: greetingText,
-                      timestamp: new Date(),
-                    }
-                  }
-                });
-                console.log('[twilio-start] Persisted greeting to DB');
-              } catch (dbErr) {
-                console.error('[twilio-start-db] Failed to push greeting to DB:', dbErr.message);
-              }
+              CallRecord.findByIdAndUpdate(CallSession.recordId, {
+                $push: { transcript: { speaker: 'agent', text: greeting, timestamp: new Date() } }
+              }).catch((e) => console.warn('[db] Greeting save failed:', e.message));
             }
-          }).catch((speakErr) => {
-            console.error('[twilio-greeting] Error speaking greeting:', speakErr.message);
+            const elapsed = Date.now() - connectionStart;
+            console.log(`[twilio] ✅ Greeting delivered — ${elapsed}ms from connection open`);
+          }).catch((err) => {
+            console.error('[greeting] Error speaking greeting:', err.message);
           });
+
           break;
         }
 
+        // ── Media (audio frames from caller) ──────────────────────────────
         case 'media': {
           const payload = msg.media?.payload;
-          if (!payload) return;
-          if (!CallSession.sttSocket) return;
+          if (!payload || !CallSession.sttSocket) return;
 
-          // Convert Twilio mulaw 8kHz -> PCM 16kHz and forward to Sarvam STT
           try {
             const pcmBuffer = twilioMulawToSarvamPCM(payload);
             if (CallSession.sttSocket.readyState === 1) {
+              // Send raw PCM directly to Sarvam STT WebSocket
               CallSession.sttSocket.socket.send(pcmBuffer);
             }
           } catch (err) {
-            console.error('[audio] Conversion/Send error:', err.message);
+            console.error('[audio] Conversion/send error:', err.message);
           }
           break;
         }
 
+        // ── Stop ──────────────────────────────────────────────────────────
         case 'stop':
-          console.log('[twilio] "stop" event received');
+          console.log('[twilio] "stop" event — call ended');
           await finalizeCallRecord(CallSession, 'completed');
           cleanup(CallSession);
           break;
@@ -694,20 +630,20 @@ async function handleMediaStream(twilioWs) {
           break;
       }
     } catch (eventErr) {
-      console.error(`[media-stream] Exception processing event "${msg.event}":`, eventErr);
+      console.error(`[media-stream] Exception processing "${msg.event}":`, eventErr);
       await finalizeCallRecord(CallSession, 'failed');
       cleanup(CallSession);
     }
   });
 
   twilioWs.on('close', async (code, reason) => {
-    console.log(`[twilio] WebSocket closed by Twilio. Code: ${code}, Reason: ${reason || 'none'}`);
+    console.log(`[twilio] WebSocket closed — code: ${code}, reason: ${reason || 'none'}`);
     await finalizeCallRecord(CallSession, 'completed');
     cleanup(CallSession);
   });
 
   twilioWs.on('error', async (err) => {
-    console.error('[twilio] WebSocket connection error:', err);
+    console.error('[twilio] WebSocket error:', err.message);
     await finalizeCallRecord(CallSession, 'failed');
     cleanup(CallSession);
   });
