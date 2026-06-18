@@ -54,6 +54,7 @@ app.get('/', (req, res) => res.json({ message: 'ATLAS API is running ✅' }));
 // Serve uploaded images (admin uploads + seeded dataset) statically
 app.use('/uploads/dataset', express.static(path.join(__dirname, '../tmp/houses-dataset/Houses Dataset')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/call/tts-audio', express.static(path.join(__dirname, 'temp_uploads')));
 
 // Mount all route groups under /api
 app.use('/api/auth',        authRoutes);
