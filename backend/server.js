@@ -1,5 +1,18 @@
 // What this file does: Express server entry point — mounts routes, middleware, connects DB
 require('dotenv').config();
+
+// Ensure all required environment variables are populated on startup
+const required = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE', 'BASE_URL'];
+for (const key of required) {
+  const val = process.env[key];
+  if (!val || val.includes('your_') || val.includes('your-')) {
+    throw new Error(`CRITICAL STARTUP ERROR: Missing or placeholder required env var: ${key}. Please configure this in backend/.env`);
+  }
+}
+if (process.env.BASE_URL.includes('localhost') || process.env.BASE_URL.includes('127.0.0.1')) {
+  console.warn('\n⚠️  WARNING: BASE_URL is set to localhost — Twilio cannot reach this. Set it to your ngrok HTTPS URL before making calls.\n');
+}
+
 const express    = require('express');
 const cors       = require('cors');
 const path       = require('path');
@@ -10,6 +23,7 @@ const propertyRoutes   = require('./routes/propertyRoutes');
 const enquiryRoutes    = require('./routes/enquiryRoutes');
 const agentRoutes      = require('./routes/agentRoutes');
 const adminRoutes      = require('./routes/adminRoutes');
+const callRoutes       = require('./routes/callRoutes');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -30,6 +44,7 @@ app.use('/api/properties',  propertyRoutes);
 app.use('/api/enquiries',   enquiryRoutes);
 app.use('/api/agent',       agentRoutes);
 app.use('/api/admin',       adminRoutes);
+app.use('/api/call',        callRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => res.json({ message: 'ATLAS API is running ✅' }));

@@ -1,4 +1,4 @@
-// What this file does: full property detail page with photo carousel, AI agent, and similar properties
+// What this file does: full property detail page with photo carousel, Twilio talk to agent trigger, and similar properties
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 import PropertyCard from '../components/property/PropertyCard';
 import PhotoCarousel from '../components/property/PhotoCarousel';
 import SaveButton from '../components/property/SaveButton';
-import VoiceAgentWidget from '../components/agent/VoiceAgentWidget';
+import TalkToAgentButton from '../components/agent/TalkToAgentButton';
 import { getProperty, getSimilarProperties } from '../api/propertyApi';
 import { toggleSaveProperty, getMe } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +22,6 @@ export default function PropertyDetailPage() {
   const [similar,   setSimilar]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [saved,     setSaved]     = useState(false);
-  const [agentOpen, setAgentOpen] = useState(false);
 
   // Load property details
   useEffect(() => {
@@ -156,14 +155,7 @@ export default function PropertyDetailPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <button
-                id="talk-to-agent-btn"
-                onClick={() => setAgentOpen(true)}
-                className="btn-rose"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'center', borderRadius: '8px' }}
-              >
-                <Mic size={16} /> Talk to Agent
-              </button>
+              <TalkToAgentButton property={property} />
               <SaveButton isSaved={saved} onClick={handleSaveToggle} />
             </div>
 
@@ -193,11 +185,6 @@ export default function PropertyDetailPage() {
           </div>
         )}
       </motion.div>
-
-      {/* AI Voice Agent Panel */}
-      <AnimatePresence>
-        {agentOpen && <VoiceAgentWidget property={property} onClose={() => setAgentOpen(false)} />}
-      </AnimatePresence>
     </div>
   );
 }
