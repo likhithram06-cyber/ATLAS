@@ -343,8 +343,8 @@ async function initSarvamSockets(session, twilioWs) {
     model:                  'saaras:v3', // flagship model for streaming STT
     input_audio_codec:      'pcm_s16le',
     sample_rate:            '16000',
-    vad_signals:            true,
-    high_vad_sensitivity:   true,
+    vad_signals:            'true',
+    high_vad_sensitivity:   'true',
   });
   session.sttSocket = sttSocket;
   await sttSocket.waitForOpen();
@@ -372,15 +372,19 @@ async function initSarvamSockets(session, twilioWs) {
           }
 
         } else if (signal === 'END_SPEECH') {
-          console.log('[stt] 🎙️  Speech end');
-          const utterance = (session.currentTranscript || '').trim();
-          console.log("FINAL TRANSCRIPT:", utterance);
-          session.currentTranscript = '';
-          if (utterance.length >= 2) {
-            handleFinalUtterance(utterance, session, twilioWs).catch((err) =>
-              console.error('[stt] handleFinalUtterance error:', err.message)
-            );
-          }
+          console.log('[stt] 🎙️  Speech end — waiting 250ms for final transcription packets');
+          setTimeout(() => {
+            const utterance = (session.currentTranscript || '').trim();
+            console.log("FINAL TRANSCRIPT (after VAD delay):", utterance);
+            session.currentTranscript = '';
+            if (utterance.length >= 2) {
+              handleFinalUtterance(utterance, session, twilioWs).catch((err) =>
+                console.error('[stt] handleFinalUtterance error:', err.message)
+              );
+            } else {
+              console.log('[stt] Utterance empty or too short, skipping response');
+            }
+          }, 250);
         }
 
       } else if (msg.type === 'data') {
