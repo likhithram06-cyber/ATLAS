@@ -1,37 +1,38 @@
 # ✦ ATLAS — Next-Gen Real Estate Discovery with AI Voice Agent
 
-ATLAS is a premium, state-of-the-art real estate platform that combines modern web experiences with live, streaming AI conversational capabilities. The platform allows users to browse premium property inventories with high performance and connect with an advanced AI Voice Agent via outbound phone calls to inquire about properties and negotiate pricing.
+ATLAS is a premium, state-of-the-art real estate discovery platform that combines high-performance property searches with a live, real-time conversational voice agent. The platform allows users to browse premium listings and immediately place outbound phone calls to interact with a warm, natural AI agent to ask questions, negotiate prices, and receive recommendations.
 
 ---
 
 ## 🚀 Key Features
 
-### 1. Live AI Voice Agent (Telephony Flow)
-- **Twilio Outbound Calling**: Integrates with Twilio to initiate voice calls to prospective buyers.
-- **WebSocket Streaming**: Pipes live call audio bi-directionally over a Node.js WebSocket connection.
-- **Sarvam AI Integration**: Powered by Sarvam AI's low-latency streaming models (**Saarika STT** for Speech-to-Text and **Bulbul TTS** for Text-to-Speech) to listen, think, and reply to the user naturally.
+### 1. Live AI Voice Agent (Real-Time WebSocket Stream)
+*   **Outbound Twilio Pipeline**: Triggers outbound calls directly from the property page using Twilio's telephony API, pointing to a secure `/voice-stream` endpoint.
+*   **Bi-directional Audio Streaming**: Hands off call audio via a `<Connect><Stream>` TwiML command to a Node.js WebSocket handler (`wss://`), achieving zero-turn latency.
+*   **Flagship STT (Speech-to-Text)**: Powered by Sarvam AI's flagship **`saaras:v3`** streaming model to transcribe user speech in real-time. Audio packets are transmitted using the official JSON-wrapped base64 `transcribe` API to guarantee delivery.
+*   **Groq LLM Streaming**: Leverages Groq's ultra-fast **`llama-3.1-8b-instant`** model to generate human-like, conversational, and direct property answers with a strict token cap (80 tokens) for short, natural phone turns.
+*   **Barge-In (Interruption) Support**: Leverages Voice Activity Detection (VAD) signals (`START_SPEECH` / `END_SPEECH`) from Sarvam to instantly mute the agent's playback when the caller speaks.
+*   **Dynamic Language Switch**: Auto-detects caller language (Telugu, Hindi, English) and dynamically updates the TTS engine parameters during the call.
+*   **Flagship TTS (Text-to-Speech)**: Streams synthesized Indian English and Indic language voice replies back to Twilio using Sarvam's streaming `bulbul:v3` model.
 
-### 2. Premium Admin Portal & Lead Dashboard
-- **Conversational Analytics**: Evaluates caller buying intent dynamically based on user utterances.
-- **Max-Heap Priority Scoring**: Automatically ranks prospective leads by conversion probability using a custom Max-Heap data structure.
-- **Live Call Records & Transcripts**: Displays active and completed calls with full conversational text logs and real-time streaming transcripts.
+### 2. Premium Admin Portal & Analytical Dashboard
+*   **Enquiry Intent Scoring**: Employs LLaMA-based intent extraction to rate caller buying interest from 0% to 100% and break down bargaining metrics.
+*   **Dynamic Response Latency Graph**: Calculates the exact response time (delay in seconds) from the end of the user's speech to the delivery of the agent's reply. This turn-by-turn latency metric is visualized on the admin portal using a **custom glow-effect SVG Line Chart** under both Call Records and User Leads.
+*   **Max-Heap Priority Ranking**: Automatically ranks enquiries by intent scores in real-time using an optimized binary Max-Heap structure for high-priority lead follow-ups.
 
-### 3. High-Performance Searching & Recommendations
-- **Binary Search Price Filter**: Implements an optimized $O(\log N)$ binary search algorithm to filter property prices instantly on both backend and frontend.
-- **Cosine Similarity Recommendations**: Suggests the top 4 most similar listings based on numerical specs using cosine similarity.
-
-### 4. Robust Security & Authentication
-- **OAuth Integration**: Support for Google OAuth and Firebase credentials.
-- **JWT-Based Route Protection**: Standard JSON Web Tokens protect all private user features and admin operations.
+### 3. Optimized Algorithms & Security
+*   **Binary Search Price Filter**: Implements an $O(\log N)$ binary search to filter properties instantly by price ranges.
+*   **Cosine Similarity Recommendations**: Dynamically builds vectors mapping price, BHK, and location to surface the top 4 similar listings using cosine similarity.
+*   **Secure Authentication**: JWT protected API routes, secure password hashing, and Google OAuth integration with token signature verification.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React (Vite), TailwindCSS, Lucide icons, Framer Motion (animations)
-- **Backend**: Node.js, Express, WebSocket (`ws`)
-- **Database & Cache**: MongoDB Atlas (Mongoose), Redis Caching
-- **Services**: Twilio voice webhooks, Sarvam AI streaming SDK, Groq (Whisper + LLaMA)
+*   **Frontend**: React (Vite), TailwindCSS, Framer Motion, Lucide icons
+*   **Backend**: Node.js, Express, WebSocket (`ws`)
+*   **Database & Cache**: MongoDB Atlas (Mongoose), Redis Caching
+*   **Third-Party APIs**: Twilio Voice, Sarvam AI, Groq (LLaMA 3.1)
 
 ---
 
@@ -40,27 +41,21 @@ ATLAS is a premium, state-of-the-art real estate platform that combines modern w
 ```
 ATLAS/
 ├── backend/
-│   ├── config/             # DB & Redis connection scripts
-│   ├── controllers/        # Express handlers (auth, properties, enquiries)
-│   ├── middleware/         # JWT verify & Twilio signature auth
+│   ├── config/             # DB (MongoDB) & Caching (Redis) configuration
+│   ├── controllers/        # Handlers (agent, admin, properties, calls)
+│   ├── middleware/         # Auth verification & Twilio signature protection
 │   ├── models/             # Mongoose schemas (User, Property, Enquiry, CallRecord)
-│   ├── routes/             # API routing
-│   ├── services/           # WebSocket media stream handler for Twilio audio
-│   ├── download_dataset.py # Python script to retrieve dataset images from Kaggle
-│   ├── seed.js             # Seeding script for MongoDB
+│   ├── routes/             # API endpoints
+│   ├── services/           # WebSocket media stream handler for real-time STT/LLM/TTS
+│   ├── utils/              # Helper utilities (binarySearch, cosineSimilarity, maxHeap)
 │   └── server.js           # Server entry point
 ├── frontend/
-│   ├── public/             # Static assets (images, fonts)
 │   ├── src/
-│   │   ├── api/            # Axios API wrappers
-│   │   ├── components/     # Custom UI components (Navbar, ProtectedRoute)
-│   │   ├── context/        # Auth state provider
-│   │   ├── hooks/          # React hooks (useVoiceAgent)
-│   │   └── pages/          # App pages (Landing, Browse, Admin Dashboard)
+│   │   ├── api/            # API service calls
+│   │   ├── components/     # Reusable React components (Navbar, protected routing)
+│   │   └── pages/          # Admin dashboard, Login, Landing pages
 │   ├── tailwind.config.js
 │   └── vite.config.js
-├── setup.js                # One-command project configuration installer
-└── requirements.txt        # Python dependency list
 ```
 
 ---
@@ -68,46 +63,41 @@ ATLAS/
 ## 📦 Getting Started & Setup
 
 ### Prerequisites
-Make sure you have the following installed on your machine:
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [Python 3](https://www.python.org/) (with `pip`)
-- [MongoDB Atlas](https://www.mongodb.com/atlas) (or local MongoDB)
-- [Redis Server](https://redis.io/)
-- [ngrok](https://ngrok.com/) (to tunnel Twilio webhooks to your local machine)
+*   Node.js (v18 or higher)
+*   MongoDB Instance (or Atlas URI)
+*   Redis Server
+*   Twilio Account (SID, Auth Token, Phone Number)
+*   Sarvam AI and Groq API keys
 
 ---
 
 ### Environment Setup
 
-Create a `.env` file in the `backend/` directory and configure the variables:
-
+Create a `.env` file in the `backend/` directory:
 ```ini
 PORT=5000
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_super_secret_jwt_key
+MONGO_URI=your_mongodb_atlas_connection_string
+JWT_SECRET=your_jwt_secret_key
 ADMIN_ID=admin
 ADMIN_PASSWORD=admin_password
 
-# Twilio Credentials
+# Twilio Telephony Credentials
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_PHONE=your_twilio_phone_number
 
-# ngrok forwarding HTTPS URL
-BASE_URL=https://your-ngrok-subdomain.ngrok-free.dev
+# Public HTTPS deployment URL (Render)
+BASE_URL=https://your-service.onrender.com
 
-# Sarvam AI API Key
+# AI Keys
 SARVAM_API_KEY=your_sarvam_api_key
-
-# Third-Party / Webhook configurations (Optional)
 GROQ_API_KEY=your_groq_api_key
-N8N_WEBHOOK_URL=your_webhook_url
+N8N_WEBHOOK_URL=your_n8n_telegram_webhook_url
 ```
 
 Create a `.env` file in the `frontend/` directory:
-
 ```ini
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=https://your-service.onrender.com
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
@@ -115,26 +105,17 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 
 ### Installation & Run
 
-1.  **Configure local ngrok forwarding**:
-    Start the ngrok tunnel on the Express port to allow Twilio webhooks to reach your machine:
-    ```bash
-    ngrok http 5000
-    ```
-    Copy the generated HTTPS URL and paste it as the `BASE_URL` in `backend/.env`.
-
-2.  **Execute the Setup Script**:
-    Run the automated installer from the project root. This installs dependencies, downloads the Kaggle property image dataset, and seeds your MongoDB database:
+1.  **Run the automated setup script**:
+    Installs packages, downloads Kaggle housing dataset images, and seeds MongoDB:
     ```bash
     node setup.js
     ```
-
-3.  **Start the Backend Server**:
+2.  **Start the Backend Express & WebSocket server**:
     ```bash
     cd backend
     npm run dev
     ```
-
-4.  **Start the Frontend Client**:
+3.  **Start the Frontend Vite client**:
     ```bash
     cd frontend
     npm run dev
@@ -144,4 +125,4 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ---
 
 ## 📄 License
-This project is licensed under the [ISC License](LICENSE).
+This project is licensed under the ISC License.
