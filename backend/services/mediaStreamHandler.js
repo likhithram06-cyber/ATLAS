@@ -331,7 +331,7 @@ async function initSarvamSockets(session, twilioWs) {
   const sttSocket = await sarvam.speechToTextStreaming.connect({
     'Api-Subscription-Key': apiKey,
     'language-code':        'unknown',   // auto-detect Telugu/Hindi/English
-    model:                  'saarika:v2.5',
+    model:                  'saaras:v3', // flagship model for streaming STT
     input_audio_codec:      'pcm_s16le',
     sample_rate:            '16000',
     vad_signals:            true,
@@ -610,8 +610,12 @@ async function handleMediaStream(twilioWs) {
           try {
             const pcmBuffer = twilioMulawToSarvamPCM(payload);
             if (CallSession.sttSocket.readyState === 1) {
-              // Send raw PCM directly to Sarvam STT WebSocket
-              CallSession.sttSocket.socket.send(pcmBuffer);
+              // Send JSON-wrapped base64 payload as expected by Sarvam SDK & WebSocket API
+              CallSession.sttSocket.transcribe({
+                audio:       pcmBuffer.toString('base64'),
+                sample_rate: 16000,
+                encoding:    'pcm_s16le',
+              });
             }
           } catch (err) {
             console.error('[audio] Conversion/send error:', err.message);
