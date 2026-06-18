@@ -54,3 +54,17 @@ exports.getEnquiryDetail = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// GET all enquiries across the entire platform
+exports.getAllEnquiries = async (req, res) => {
+  try {
+    const enquiries = await Enquiry.find()
+      .populate('user', 'name phone email')
+      .populate('property', 'title location price images')
+      .sort({ intentScore: -1 })
+      .lean();
+    res.json(enquiries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

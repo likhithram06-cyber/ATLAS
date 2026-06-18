@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/register',    authController.register);
 router.post('/login',       authController.login);
+router.post('/admin-login', authController.adminLogin);
 router.post('/google',      authController.googleAuth);
 router.get('/me', verifyToken, authController.getMe);
 router.put('/save-property/:id', verifyToken, authController.toggleSaveProperty);

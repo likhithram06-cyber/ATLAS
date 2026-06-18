@@ -31,6 +31,11 @@ const enquirySchema = new mongoose.Schema({
     default: 'pending',
   },
 
+  // Price tracking details for negotiation analysis
+  originalPrice:    { type: Number, default: 0 },
+  offeredPrice:     { type: Number, default: 0 },
+  finalAgreedPrice: { type: Number, default: 0 },
+
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -163,6 +163,14 @@ ${JSON.stringify(transcript)}`;
       intentScore = Math.min(100, score);
     }
 
+    // Calculate negotiation pricing details
+    const origPrice = property.price;
+    const offPrice = finalPriceAsked || property.price;
+    // If user asked/offered a bargained price, calculate a midway final agreed price, else same as original
+    const agreedPrice = (finalPriceAsked && finalPriceAsked < property.price)
+      ? Math.round((property.price + finalPriceAsked) / 2)
+      : property.price;
+
     // Save Enquiry to database (link user if logged in)
     const userId = req.user ? req.user.id : null;
     const enquiry = await Enquiry.create({
@@ -170,7 +178,10 @@ ${JSON.stringify(transcript)}`;
       user: userId,
       transcript: transcript,
       intentScore,
-      finalPriceAsked: finalPriceAsked || property.price,
+      finalPriceAsked: offPrice,
+      originalPrice: origPrice,
+      offeredPrice: offPrice,
+      finalAgreedPrice: agreedPrice,
       interested,
     });
 

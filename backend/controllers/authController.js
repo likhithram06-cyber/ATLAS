@@ -192,3 +192,32 @@ exports.toggleSaveProperty = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Admin login flow verifying environment variables or the predefined passcode
+exports.adminLogin = async (req, res) => {
+  try {
+    const { adminId, password } = req.body;
+    if (!adminId || !password) {
+      return res.status(400).json({ error: 'Admin ID and password are required' });
+    }
+
+    const expectedAdminId = process.env.ADMIN_ID || 'atlas_admin';
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'hackathon2024';
+    const expectedAdminCode = process.env.ADMIN_CODE || '72426124';
+
+    // Verify credentials: standard ID + password or standard ID + passcode
+    if (adminId === expectedAdminId && (password === expectedPassword || password === expectedAdminCode)) {
+      const token = jwt.sign(
+        { id: 'admin_id', email: 'admin@atlas.com', role: 'admin' },
+        process.env.JWT_SECRET,
+        { expiresIn: '1d' }
+      );
+      return res.json({ token, user: { id: 'admin_id', name: 'Admin', email: 'admin@atlas.com', role: 'admin' } });
+    }
+
+    return res.status(401).json({ error: 'Invalid admin credentials' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
