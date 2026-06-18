@@ -9,6 +9,7 @@ const enquirySchema = new mongoose.Schema({
   transcript: [{
     role:      { type: String, enum: ['user', 'assistant'] },
     text:      { type: String },
+    latency:   { type: Number, default: 0 },
     timestamp: { type: Date, default: Date.now },
   }],
 

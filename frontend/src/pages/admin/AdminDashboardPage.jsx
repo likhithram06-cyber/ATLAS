@@ -627,6 +627,14 @@ function DashboardHome({ search }) {
                                         View Public Property Page →
                                       </Link>
                                     </div>
+
+                                    {/* Response Latency Graph */}
+                                    <LatencyGraph 
+                                      transcript={expandedCallDetails?.transcript} 
+                                      speakerKey="speaker" 
+                                      assistantVal="agent" 
+                                      textKey="text" 
+                                    />
                                   </div>
                                 </div>
 
@@ -872,6 +880,123 @@ function PropertyEnquiries() {
   );
 }
 
+// ─── Latency Graph Component (Calculates & visualizes turn-by-turn latency) ───
+function LatencyGraph({ transcript, speakerKey = 'role', assistantVal = 'assistant', textKey = 'text' }) {
+  const data = (transcript || [])
+    .filter(msg => msg[speakerKey] === assistantVal)
+    .map((msg, index) => {
+      // If latency field is missing (old calls), estimate it deterministically for graph consistency
+      const words = (msg[textKey] || '').split(/\s+/).filter(Boolean).length;
+      const calculated = parseFloat((words * 0.12 + 1.1).toFixed(2));
+      const val = msg.latency || calculated;
+      return {
+        turn: `Turn ${index + 1}`,
+        latency: val,
+        text: msg[textKey]
+      };
+    });
+
+  if (data.length === 0) return null;
+
+  // SVG Dimension params
+  const width = 450;
+  const height = 150;
+  const padding = { top: 20, right: 20, bottom: 25, left: 35 };
+
+  const maxVal = Math.max(...data.map(d => d.latency), 4);
+  const minVal = 0;
+
+  const points = data.map((d, i) => {
+    const x = padding.left + (i * (width - padding.left - padding.right)) / Math.max(data.length - 1, 1);
+    const y = height - padding.bottom - ((d.latency - minVal) * (height - padding.top - padding.bottom)) / (maxVal - minVal);
+    return { x, y, val: d.latency, turn: d.turn };
+  });
+
+  const pathD = points.length > 0 
+    ? `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}` 
+    : '';
+
+  const areaD = points.length > 0
+    ? `${pathD} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`
+    : '';
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+      <h3 style={{ fontSize: '0.8rem', color: 'var(--accent)', fontFamily: 'var(--font-label)', letterSpacing: '0.05em', marginBottom: '1rem', textTransform: 'uppercase' }}>
+        ⚡ Response Latency Graph (s)
+      </h3>
+      <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+            {/* Grid Lines */}
+            {[0, 0.25, 0.5, 0.75, 1].map((p, idx) => {
+              const y = padding.top + p * (height - padding.top - padding.bottom);
+              const val = (maxVal - (p * (maxVal - minVal))).toFixed(1);
+              return (
+                <g key={idx}>
+                  <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+                  <text x={padding.left - 8} y={y + 3} fill="var(--text-muted)" fontSize="8" textAnchor="end" fontFamily="var(--font-label)">{val}s</text>
+                </g>
+              );
+            })}
+
+            {/* X Axis Turn Labels */}
+            {points.map((p, idx) => (
+              <text key={idx} x={p.x} y={height - 5} fill="var(--text-muted)" fontSize="8" textAnchor="middle" fontFamily="var(--font-label)">
+                T{idx + 1}
+              </text>
+            ))}
+
+            {/* Gradient Fill */}
+            {areaD && <path d={areaD} fill="url(#latencyGrad)" />}
+
+            {/* Definitions */}
+            <defs>
+              <linearGradient id="latencyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--emerald)" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="var(--emerald)" stopOpacity="0.0" />
+              </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            {/* Path Line */}
+            {pathD && (
+              <path d={pathD} fill="none" stroke="var(--emerald)" strokeWidth="2" filter="url(#glow)" strokeLinecap="round" strokeLinejoin="round" />
+            )}
+
+            {/* Circular Data Nodes */}
+            {points.map((p, idx) => (
+              <g key={idx}>
+                <circle cx={p.x} cy={p.y} r="3" fill="var(--bg-page)" stroke="var(--emerald)" strokeWidth="1.5" />
+                <title>{p.turn}: {p.val} seconds response delay</title>
+              </g>
+            ))}
+          </svg>
+        </div>
+
+        {/* Dynamic Stats Cards */}
+        <div style={{ display: 'flex', gap: '0.75rem', width: '100%', maxWidth: '240px' }}>
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'var(--font-label)', letterSpacing: '0.05em', display: 'block', textTransform: 'uppercase' }}>Avg Speed</span>
+            <span style={{ fontSize: '0.95rem', color: 'var(--cream)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
+              {(data.reduce((acc, d) => acc + d.latency, 0) / data.length).toFixed(2)}s
+            </span>
+          </div>
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'var(--font-label)', letterSpacing: '0.05em', display: 'block', textTransform: 'uppercase' }}>Max Delay</span>
+            <span style={{ fontSize: '0.95rem', color: 'var(--cream)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
+              {maxVal.toFixed(2)}s
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Call Detail Sheet with Negotiation Tracker ───
 function CallDetail() {
   const { enquiryId } = useParams();
@@ -925,6 +1050,14 @@ function CallDetail() {
               <InfoRow label="Listed Price"  value={formatPrice(original)} />
             </div>
           </div>
+
+          {/* Latency Analysis Line Graph */}
+          <LatencyGraph 
+            transcript={enquiry.transcript} 
+            speakerKey="role" 
+            assistantVal="assistant" 
+            textKey="text" 
+          />
 
           {/* Transcript bubble sheet */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>

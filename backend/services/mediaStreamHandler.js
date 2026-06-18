@@ -305,8 +305,16 @@ async function handleFinalUtterance(utterance, session, twilioWs) {
 
     // Persist agent reply to DB
     if (session.recordId) {
+      const turnLatency = Number((replyTime / 1000).toFixed(2));
       CallRecord.findByIdAndUpdate(session.recordId, {
-        $push: { transcript: { speaker: 'agent', text: agentReply.trim(), timestamp: new Date() } }
+        $push: { 
+          transcript: { 
+            speaker: 'agent', 
+            text: agentReply.trim(), 
+            latency: turnLatency,
+            timestamp: new Date() 
+          } 
+        }
       }).catch((err) => console.warn('[db] Agent reply save failed:', err.message));
     }
   }

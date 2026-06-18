@@ -41,6 +41,10 @@ const callRecordSchema = new mongoose.Schema({
         type: String,
         required: true,
       },
+      latency: {
+        type: Number,
+        default: 0,
+      },
       timestamp: {
         type: Date,
         default: Date.now,
