@@ -11,7 +11,7 @@ import { makeCall } from '../../api/callApi';
 export default function TalkToAgentButton({ property }) {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [phone, setPhone] = useState(user?.phone || '+91 9676678346');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -68,8 +68,10 @@ export default function TalkToAgentButton({ property }) {
   function handleOpen() {
     setIsOpen(true);
     // Refresh prefilled phone in case user logged in after page loaded
-    if (user?.phone && !phone) {
+    if (user?.phone) {
       setPhone(user.phone);
+    } else if (!phone || phone === '+91 9676678346') {
+      setPhone('+91 9676678346');
     }
   }
 
