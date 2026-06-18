@@ -137,17 +137,18 @@ exports.makeCall = async (req, res) => {
 // Generates TwiML greeting with robust TTS fallbacks and Gather configuration.
 // ─────────────────────────────────────────────────────────────────────────────
 exports.voiceWebhook = async (req, res) => {
-  const { VoiceResponse } = twilio.twiml;
-  const twiml = new VoiceResponse();
-
   const propertyId = req.query.propertyId;
   const callerPhone = req.body.From || req.query.From || '';
   let property = null;
 
   console.log(`[voiceWebhook] Call connected. PropertyId: ${propertyId}, CallerPhone: ${callerPhone}`);
 
+  let greetingText = '';
+  let audioPlayed = false;
+  let audioPublicUrl = '';
+
   try {
-    // 1. Pull property details safely from MongoDB
+    // 1. Pull property details safely from MongoDB (properly awaited first)
     if (propertyId) {
       try {
         property = await Property.findById(propertyId);
@@ -159,12 +160,16 @@ exports.voiceWebhook = async (req, res) => {
     const propTitle    = property?.title    || 'ATLAS రియల్ ఎస్టేట్';
     const propLocation = property?.location || 'మంచి ప్రాంతం';
     const propPrice    = property ? formatPrice(property.price) : 'అందుబాటులో ఉంది';
-    const greetingText = `హలో! ATLAS రియల్ ఎస్టేట్‌కు స్వాగతం. నేను ${propTitle} గురించి మాట్లాడుతున్నాను, ఇది ${propLocation} లో ఉంది, దీని ధర ${propPrice}. నేను మీకు ఎలా సహాయం చేయగలను?`;
+    
+    greetingText = `హలో! ATLAS రియల్ ఎస్టేట్‌కు స్వాగతం. నేను ${propTitle} గురించి మాట్లాడుతున్నాను, ఇది ${propLocation} లో ఉంది, దీని ధర ${propPrice}. నేను మీకు ఎలా సహాయం చేయగలను?`;
 
-    // ── Attempt Telugu TTS via external service ───────────────────────────────
-    let audioPlayed = false;
+    // Guard: Ensure text passed to Say is never empty/whitespace
+    if (!greetingText || typeof greetingText !== 'string' || !greetingText.trim()) {
+      greetingText = 'హలో! ATLAS రియల్ ఎస్టేట్‌కు స్వాగతం. నేను మీకు ఎలా సహాయం చేయగలను?';
+    }
+
+    // ── Attempt Telugu TTS via external service (properly awaited first) ──
     const ttsUrl = process.env.TELUGU_TTS_URL;
-
     if (ttsUrl && ttsUrl !== 'http://localhost:5000/api/mock-tts') {
       try {
         console.log(`[voiceWebhook] Requesting external Telugu TTS: ${ttsUrl}`);
@@ -187,8 +192,7 @@ exports.voiceWebhook = async (req, res) => {
         fs.writeFileSync(audioPath, Buffer.from(ttsResponse.data));
 
         const activeBaseUrl = process.env.BASE_URL || '';
-        const audioPublicUrl = `${activeBaseUrl}/api/call/tts-audio/${audioFilename}`;
-        twiml.play(audioPublicUrl);
+        audioPublicUrl = `${activeBaseUrl}/api/call/tts-audio/${audioFilename}`;
         audioPlayed = true;
         console.log(`[voiceWebhook] Playing external TTS audio URL: ${audioPublicUrl}`);
 
@@ -203,47 +207,61 @@ exports.voiceWebhook = async (req, res) => {
       }
     }
 
-    // ── Fallback: Twilio Built-in TTS (Using Polly.Chitra or standard voice) ──
-    // CRITICAL: Google.te-IN-Standard-A is NOT supported in standard TwiML <Say> voice values.
-    // We use Polly.Chitra or fallback to 'woman' voice with te-IN language.
-    if (!audioPlayed) {
+    // ── NOW we construct the TwiML response (all async operations completed!) ──
+    const { VoiceResponse } = twilio.twiml;
+    const twiml = new VoiceResponse();
+
+    if (audioPlayed && audioPublicUrl) {
+      twiml.play(audioPublicUrl);
+    } else {
       console.log('[voiceWebhook] Playing built-in Twilio Telugu TTS (Polly.Chitra)');
       twiml.say(
         { voice: 'Polly.Chitra', language: 'te-IN' },
-        greetingText
+        xmlEscape(greetingText)
       );
     }
 
-    // ── Configure Gather to support both Speech AND DTMF (keypad) ──
+    // ── Configure Gather to support both Speech AND DTMF ──
     const activeBaseUrl = process.env.BASE_URL || '';
     const gather = twiml.gather({
       input:      'speech dtmf',
       action:     `${activeBaseUrl}/api/call/process?propertyId=${propertyId || ''}`,
       method:     'POST',
-      language:   'te-IN',          // Telugu speech recognition
+      language:   'te-IN',
       speechTimeout: 'auto',
       timeout:    5,
-      numDigits:  1,                // If they press a digit, process it instantly
+      numDigits:  1,
     });
 
     gather.say(
       { voice: 'Polly.Chitra', language: 'te-IN' },
-      'దయచేసి మీ ప్రశ్నను అడగండి లేదా కీప్యాడ్‌లో ఏదైనా బటన్ నొక్కండి.'
+      xmlEscape('దయచేసి మీ ప్రశ్నను అడగండి లేదా కీప్యాడ్‌లో ఏదైనా బటన్ నొక్కండి.')
     );
 
     // Fallback if caller says/does nothing
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, 'క్షమించండి, మాకు ఎటువంటి స్పందన రాలేదు. సెలవు!');
+    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape('క్షమించండి, మాకు ఎటువంటి స్పందన రాలేదు. సెలవు!'));
     twiml.hangup();
+
+    const twimlStr = twiml.toString();
+    console.log('[voiceWebhook] Final TwiML Response:\n', twimlStr);
+
+    res.type('text/xml');
+    return res.send(twimlStr);
 
   } catch (err) {
     console.error('[voiceWebhook] Error in voiceWebhook handler:', err);
-    // Fallback error-handler response to prevent "Application Error" crashes
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, 'సాంకేతిక లోపం ఏర్పడింది. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి.');
-    twiml.hangup();
+    // Fallback error-handler response
+    const { VoiceResponse } = twilio.twiml;
+    const fallbackTwiml = new VoiceResponse();
+    fallbackTwiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape('సాంకేతిక లోపం ఏర్పడింది. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి.'));
+    fallbackTwiml.hangup();
+    
+    const fallbackStr = fallbackTwiml.toString();
+    console.log('[voiceWebhook] Final Fallback TwiML Response:\n', fallbackStr);
+    
+    res.type('text/xml');
+    return res.send(fallbackStr);
   }
-
-  res.type('text/xml');
-  return res.send(twiml.toString());
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,7 +282,7 @@ exports.processInput = async (req, res) => {
   // Handle DTMF Keypress (DTMF keypad input)
   if (digits) {
     console.log(`[processInput] User pressed DTMF key: ${digits}. Prompting them to speak.`);
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, "మీరు కీప్యాడ్ బటన్ నొక్కారు. దయచేసి మీ ప్రశ్నను నోటితో అడగండి.");
+    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape("మీరు కీప్యాడ్ బటన్ నొక్కారు. దయచేసి మీ ప్రశ్నను నోటితో అడగండి."));
     
     // Re-trigger Gather for speech/DTMF
     const activeBaseUrl = process.env.BASE_URL || '';
@@ -285,7 +303,7 @@ exports.processInput = async (req, res) => {
   // Handle empty input
   if (!speechResult.trim()) {
     console.log('[processInput] Empty speech result. Asking caller to speak again.');
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, "నేను వినలేకపోయాను. దయచేసి మళ్ళీ మాట్లాడండి.");
+    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape("నేను వినలేకపోయాను. దయచేసి మళ్ళీ మాట్లాడండి."));
     const activeBaseUrl = process.env.BASE_URL || '';
     twiml.gather({
       input: 'speech dtmf',
@@ -389,7 +407,7 @@ exports.processInput = async (req, res) => {
     }
 
     // 6. Respond via Twilio using supported voice
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, replyText);
+    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape(replyText));
 
     // Keep the call open to gather the next response
     const activeBaseUrl = process.env.BASE_URL || '';
@@ -405,7 +423,7 @@ exports.processInput = async (req, res) => {
 
   } catch (err) {
     console.error('[processInput] Uncaught exception in processInput handler:', err);
-    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, "సాంకేతిక లోపం. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి.");
+    twiml.say({ voice: 'Polly.Chitra', language: 'te-IN' }, xmlEscape("సాంకేతిక లోపం. దయచేసి తర్వాత మళ్ళీ ప్రయత్నించండి."));
     twiml.hangup();
   }
 
@@ -506,3 +524,16 @@ function formatPrice(price) {
   if (price >= 100_000)    return `${(price / 100_000).toFixed(0)} Lakh rupees`;
   return `${price.toLocaleString('en-IN')} rupees`;
 }
+
+// Helper — XML escaping for TwiML <Say> text safety
+function xmlEscape(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+
