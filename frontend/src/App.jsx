@@ -11,6 +11,7 @@ import SignupPage         from './pages/SignupPage';
 import BrowsePage         from './pages/BrowsePage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import ProfilePage        from './pages/ProfilePage';
+import AddPropertyPage    from './pages/AddPropertyPage';
 import AdminLoginPage     from './pages/admin/AdminLoginPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 
@@ -27,9 +28,10 @@ function AnimatedRoutes() {
         <Route path="/browse"    element={<BrowsePage />} />
         <Route path="/property/:id" element={<PropertyDetailPage />} />
 
-        {/* ── Protected user profile ── */}
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/saved"   element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        {/* ── Protected user profile & property addition ── */}
+        <Route path="/profile"      element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/saved"        element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/add-property" element={<ProtectedRoute><AddPropertyPage /></ProtectedRoute>} />
 
         {/* ── Admin Portal ── */}
         <Route path="/admin/login"       element={<AdminLoginPage />} />

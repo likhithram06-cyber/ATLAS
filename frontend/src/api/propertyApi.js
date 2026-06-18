@@ -11,15 +11,15 @@ export const getProperty = (id) => api.get(`/api/properties/${id}`);
 // Fetches top 4 similar properties using cosine similarity
 export const getSimilarProperties = (id) => api.get(`/api/properties/similar/${id}`);
 
-// Creates a new property listing (admin only) — sends admin JWT token
+// Creates a new property listing — sends user JWT token
 export const createProperty = (formData) => {
-  const adminToken = localStorage.getItem('atlas_admin_token');
+  const token = localStorage.getItem('atlas_token');
   return axios.post(
     `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/properties`,
     formData,
     {
       headers: {
-        'Authorization': `Bearer ${adminToken}`,
+        'Authorization': `Bearer ${token}`,
         // Don't set Content-Type — let browser set it for multipart/form-data
       },
     }

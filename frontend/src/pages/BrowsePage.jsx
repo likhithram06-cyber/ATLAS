@@ -99,11 +99,36 @@ export default function BrowsePage() {
       <div style={{ padding: '5.5rem 2rem 3rem', maxWidth: '1200px', margin: '0 auto' }}>
 
         {/* Page header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <p className="label" style={{ color: 'var(--accent)', marginBottom: '0.5rem' }}>{filtered.length} Listings</p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem,5vw,3.5rem)', color: 'var(--cream)', marginBottom: '2rem', letterSpacing: '-0.03em' }}>
-            BROWSE HOMES
-          </h1>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}
+        >
+          <div>
+            <p className="label" style={{ color: 'var(--accent)', marginBottom: '0.5rem' }}>{filtered.length} Listings</p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem,5vw,3.5rem)', color: 'var(--cream)', margin: 0, letterSpacing: '-0.03em' }}>
+              BROWSE HOMES
+            </h1>
+          </div>
+          {user && (
+            <button
+              onClick={() => navigate('/add-property')}
+              className="btn-rose"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                borderRadius: '9999px',
+                padding: '0.6rem 1.4rem',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                animation: 'none',
+                boxShadow: 'none',
+              }}
+            >
+              + Add Property
+            </button>
+          )}
         </motion.div>
 
         {/* Search + Filter row */}

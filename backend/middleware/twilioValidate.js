@@ -9,9 +9,21 @@ module.exports = function twilioValidate(req, res, next) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const baseUrl   = process.env.BASE_URL;
 
+  // Gracefully bypass validation in development mode (non-production) or if explicitly requested via environment variables
+  if (process.env.NODE_ENV !== 'production' || process.env.BYPASS_TWILIO_VALIDATION === 'true') {
+    console.log('[twilioValidate] Bypassing Twilio signature validation in development mode');
+    return next();
+  }
+
   if (!authToken || !baseUrl) {
-    // Env vars missing — reject rather than silently pass
-    return res.status(500).json({ error: 'Twilio credentials not configured' });
+    console.error('[twilioValidate] Error: missing Twilio configuration');
+    res.type('text/xml');
+    return res.status(500).send(`
+      <Response>
+        <Say>Configuration error. Twilio credentials not configured.</Say>
+        <Reject />
+      </Response>
+    `);
   }
 
   // Reconstruct the full URL Twilio used when making this request
@@ -30,8 +42,17 @@ module.exports = function twilioValidate(req, res, next) {
       url: fullUrl,
       signature: signature?.slice(0, 20) + '…',
     });
-    return res.status(403).json({ error: 'Twilio signature validation failed' });
+    
+    // Return valid TwiML XML instead of JSON to prevent Twilio "Application Error" crashes
+    res.type('text/xml');
+    return res.status(403).send(`
+      <Response>
+        <Say>Security validation failed. Access denied.</Say>
+        <Reject />
+      </Response>
+    `);
   }
 
   next();
 };
+

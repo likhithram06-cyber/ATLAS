@@ -68,3 +68,48 @@ exports.getAllEnquiries = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+const CallRecord = require('../models/CallRecord');
+
+// GET all call records (paginated, sorted newest first)
+exports.getCallRecords = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await CallRecord.countDocuments();
+    const calls = await CallRecord.find()
+      .populate('propertyId', 'title location price')
+      .sort({ startedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      calls,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      totalCalls: total,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// GET single call record detail by callSid
+exports.getCallRecordDetail = async (req, res) => {
+  try {
+    const call = await CallRecord.findOne({ callSid: req.params.callSid })
+      .populate('propertyId', 'title location price bhk sqft images')
+      .lean();
+
+    if (!call) {
+      return res.status(404).json({ error: 'Call record not found' });
+    }
+    res.json(call);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

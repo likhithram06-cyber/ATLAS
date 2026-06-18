@@ -9,5 +9,7 @@ router.get('/properties', verifyAdmin,    adminController.getPropertiesEnquiries
 router.get('/enquiries', verifyAdmin,     adminController.getAllEnquiries);
 router.get('/property/:id', verifyAdmin,   adminController.getPropertyEnquiries);
 router.get('/enquiry/:id', verifyAdmin,    adminController.getEnquiryDetail);
+router.get('/calls', verifyAdmin,          adminController.getCallRecords);
+router.get('/calls/:callSid', verifyAdmin, adminController.getCallRecordDetail);
 
 module.exports = router;

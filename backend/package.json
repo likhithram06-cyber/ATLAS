@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "alawmulaw": "^6.0.0",
     "axios": "^1.18.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -23,7 +24,10 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.0",
     "multer": "^2.2.0",
-    "twilio": "^6.0.2"
+    "sarvamai": "^1.1.7",
+    "twilio": "^6.0.2",
+    "wavefile": "^11.0.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

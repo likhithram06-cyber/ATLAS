@@ -4,7 +4,6 @@ import { useNavigate, useParams, Routes, Route, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BarChart2, Phone, ArrowLeft, ChevronRight, User, TrendingUp, Search, ShieldCheck } from 'lucide-react';
 import api from '../../api/axios';
-import AddPropertyPage from './AddPropertyPage';
 import { getImageUrl } from '../../utils/imageUrl';
 
 function formatPrice(price) {
@@ -90,13 +89,166 @@ function ImageCarousel({ images, alt }) {
   );
 }
 
-// ─── Dashboard Home: toggleable Properties vs Leads overview ───
+
+// ─── Call Record helpers ───
+function MaskedPhone({ phone }) {
+  const [revealed, setRevealed] = useState(false);
+  if (!phone) return <span>—</span>;
+  
+  const masked = phone.length > 7 ? `${phone.slice(0, 3)} ****** ${phone.slice(-4)}` : phone;
+  
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+      <span>{revealed ? phone : masked}</span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setRevealed(!revealed);
+        }}
+        style={{
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid var(--border)',
+          borderRadius: '4px',
+          padding: '2px 6px',
+          fontSize: '0.65rem',
+          color: 'var(--silver)',
+          cursor: 'pointer',
+          fontFamily: 'var(--font-label)',
+          outline: 'none'
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--emerald-dim)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+      >
+        {revealed ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
+
+function getDuration(startedAt, endedAt) {
+  const start = new Date(startedAt);
+  const end = endedAt ? new Date(endedAt) : new Date();
+  const diffMs = end - start;
+  if (diffMs < 0) return '0s';
+  const diffSecs = Math.floor(diffMs / 1000);
+  const mins = Math.floor(diffSecs / 60);
+  const secs = diffSecs % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+}
+
+function statusBadge(status) {
+  switch (status) {
+    case 'in-progress':
+      return (
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          background: 'rgba(52,216,196,0.12)',
+          color: 'var(--emerald-lit)',
+          border: '1px solid rgba(52,216,196,0.3)',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: 500,
+          textTransform: 'uppercase',
+          fontFamily: 'var(--font-label)',
+        }}>
+          <span className="pulse-dot" style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: '#34D8C4',
+            display: 'inline-block'
+          }} />
+          IN PROGRESS
+        </span>
+      );
+    case 'completed':
+      return (
+        <span style={{
+          display: 'inline-block',
+          background: 'rgba(16,185,129,0.12)',
+          color: 'var(--emerald)',
+          border: '1px solid rgba(16,185,129,0.3)',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: 500,
+          textTransform: 'uppercase',
+          fontFamily: 'var(--font-label)',
+        }}>
+          COMPLETED
+        </span>
+      );
+    case 'failed':
+      return (
+        <span style={{
+          display: 'inline-block',
+          background: 'rgba(239,68,68,0.12)',
+          color: '#ef4444',
+          border: '1px solid rgba(239,68,68,0.3)',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: 500,
+          textTransform: 'uppercase',
+          fontFamily: 'var(--font-label)',
+        }}>
+          FAILED
+        </span>
+      );
+    case 'initiated':
+    default:
+      return (
+        <span style={{
+          display: 'inline-block',
+          background: 'rgba(240,244,248,0.08)',
+          color: 'var(--text-secondary)',
+          border: '1px solid rgba(240,244,248,0.15)',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: 500,
+          textTransform: 'uppercase',
+          fontFamily: 'var(--font-label)',
+        }}>
+          INITIATED
+        </span>
+      );
+  }
+}
+
+// ─── Dashboard Home: toggleable Properties vs Leads vs Calls overview ───
 function DashboardHome({ search }) {
   const [properties, setProperties] = useState([]);
   const [leads, setLeads] = useState([]);
-  const [activeTab, setActiveTab] = useState('leads'); // 'leads' or 'properties'
+  const [activeTab, setActiveTab] = useState('leads'); // 'leads', 'properties', or 'calls'
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const [callsData, setCallsData] = useState({ calls: [], totalPages: 1, totalCalls: 0 });
+  const [callsPage, setCallsPage] = useState(1);
+  const [callsLoading, setCallsLoading] = useState(false);
+
+  const [expandedCallSid, setExpandedCallSid] = useState(null);
+  const [expandedCallDetails, setExpandedCallDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const fetchCalls = (showLoading = false) => {
+    if (showLoading) setCallsLoading(true);
+    const token = localStorage.getItem('atlas_admin_token');
+    api.get(`/api/admin/calls?page=${callsPage}&limit=10`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        setCallsData(res.data);
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (showLoading) setCallsLoading(false);
+      });
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -112,6 +264,62 @@ function DashboardHome({ search }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'calls') {
+      fetchCalls(true);
+    }
+  }, [activeTab, callsPage]);
+
+  // Poll for calls list updates
+  useEffect(() => {
+    let interval;
+    if (activeTab === 'calls') {
+      interval = setInterval(() => {
+        fetchCalls(false);
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [activeTab, callsPage]);
+
+  // Handle row click to toggle expansion
+  const handleRowClick = (callSid) => {
+    if (expandedCallSid === callSid) {
+      setExpandedCallSid(null);
+      setExpandedCallDetails(null);
+    } else {
+      setExpandedCallSid(callSid);
+      setExpandedCallDetails(null);
+      setDetailsLoading(true);
+      const token = localStorage.getItem('atlas_admin_token');
+      api.get(`/api/admin/calls/${callSid}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => {
+          setExpandedCallDetails(res.data);
+        })
+        .catch(console.error)
+        .finally(() => setDetailsLoading(false));
+    }
+  };
+
+  // Poll details for expanded active call (if it's in-progress or initiated)
+  useEffect(() => {
+    let interval;
+    if (expandedCallSid && expandedCallDetails && (expandedCallDetails.status === 'in-progress' || expandedCallDetails.status === 'initiated')) {
+      interval = setInterval(() => {
+        const token = localStorage.getItem('atlas_admin_token');
+        api.get(`/api/admin/calls/${expandedCallSid}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => {
+            setExpandedCallDetails(res.data);
+          })
+          .catch(console.error);
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [expandedCallSid, expandedCallDetails?.status]);
+
   // Filter listings based on global search parameter
   const filteredProperties = properties.filter(p => 
     p.title?.toLowerCase().includes(search.toLowerCase()) || 
@@ -125,18 +333,28 @@ function DashboardHome({ search }) {
     (l.user?._id && String(l.user._id).includes(search))
   );
 
+  const filteredCalls = (callsData.calls || []).filter(c => 
+    c.callerPhone?.toLowerCase().includes(search.toLowerCase()) ||
+    c.propertyId?.title?.toLowerCase().includes(search.toLowerCase()) ||
+    c.propertyId?.location?.toLowerCase().includes(search.toLowerCase()) ||
+    c.callSid?.toLowerCase().includes(search.toLowerCase()) ||
+    c.status?.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div>
       {/* Sub-Header & Tab Selector */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', color: 'var(--cream)', fontFamily: 'var(--font-display)', letterSpacing: '0.05em' }}>
-            {activeTab === 'leads' ? 'INTERESTED USER LEADS' : 'PROPERTY INVENTORY'}
+            {activeTab === 'leads' ? 'INTERESTED USER LEADS' : activeTab === 'properties' ? 'PROPERTY INVENTORY' : 'LIVE VOICE CALL RECORDS'}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
             {activeTab === 'leads' 
               ? 'Real-time prospective homebuyer leads with bargaining details & conversational intent.'
-              : 'List of seeded property listings and caller analytics.'}
+              : activeTab === 'properties'
+              ? 'List of seeded property listings and caller analytics.'
+              : 'Log of real-time voice calls connected through Twilio with full live conversational transcripts.'}
           </p>
         </div>
 
@@ -164,22 +382,27 @@ function DashboardHome({ search }) {
               fontWeight: 600, transition: 'all 0.25s'
             }}
           >
-            PROPERTIES ({filteredProperties.length})
+            PROPERTY INVENTORY ({filteredProperties.length})
           </button>
-          {activeTab === 'properties' && (
-            <div style={{ marginLeft: '1rem' }}>
-              <button onClick={() => navigate('add')} style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', background: 'var(--rose)', color: 'white' }}>
-                + Add Property
-              </button>
-            </div>
-          )}
+          <button 
+            onClick={() => setActiveTab('calls')}
+            style={{
+              padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontSize: '0.78rem',
+              fontFamily: 'var(--font-label)', letterSpacing: '0.05em', cursor: 'pointer',
+              background: activeTab === 'calls' ? 'var(--emerald)' : 'transparent',
+              color: activeTab === 'calls' ? 'var(--void)' : 'var(--text-muted)',
+              fontWeight: 600, transition: 'all 0.25s'
+            }}
+          >
+            CALL RECORDS
+          </button>
         </div>
       </div>
 
-      {loading ? (
+      {loading || (activeTab === 'calls' && callsLoading) ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '5rem' }}><div className="spinner" /></div>
       ) : activeTab === 'leads' ? (
-        // Grid of individual leads (Task 6 requirement)
+        // Grid of individual leads
         filteredLeads.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
             No matching leads found.
@@ -231,7 +454,7 @@ function DashboardHome({ search }) {
             ))}
           </div>
         )
-      ) : (
+      ) : activeTab === 'properties' ? (
         // Grid of properties
         filteredProperties.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
@@ -282,10 +505,272 @@ function DashboardHome({ search }) {
             ))}
           </div>
         )
+      ) : (
+        // Call Records List / Table (expanded details inline)
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+          <style>{`
+            @keyframes live-pulse {
+              0% { opacity: 0.4; }
+              50% { opacity: 1; }
+              100% { opacity: 0.4; }
+            }
+            .pulse-dot {
+              animation: live-pulse 1.5s infinite;
+            }
+          `}</style>
+          {filteredCalls.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+              No matching call records found.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Property</th>
+                    <th style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Caller Phone</th>
+                    <th style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                    <th style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Time</th>
+                    <th style={{ padding: '0.85rem 1rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCalls.map((call) => {
+                    const isExpanded = expandedCallSid === call.callSid;
+                    return (
+                      <optgroup key={call.callSid} label="" style={{ display: 'table-row-group' }}>
+                        <tr 
+                          onClick={() => handleRowClick(call.callSid)}
+                          style={{ 
+                            borderBottom: '1px solid rgba(255,255,255,0.03)', 
+                            cursor: 'pointer',
+                            background: isExpanded ? 'rgba(255,255,255,0.01)' : 'transparent',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                          onMouseLeave={e => e.currentTarget.style.background = isExpanded ? 'rgba(255,255,255,0.01)' : 'transparent'}
+                        >
+                          <td style={{ padding: '1rem', color: 'var(--cream)', fontWeight: 500, fontSize: '0.88rem' }}>
+                            <div>{call.propertyId?.title || 'Unknown Property'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '0.15rem' }}>{call.propertyId?.location || '—'}</div>
+                          </td>
+                          <td style={{ padding: '1rem', color: 'var(--silver)', fontSize: '0.85rem' }}>
+                            <MaskedPhone phone={call.callerPhone} />
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            {statusBadge(call.status)}
+                          </td>
+                          <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                            {new Date(call.startedAt).toLocaleString('en-IN')}
+                          </td>
+                          <td style={{ padding: '1rem', textAlign: 'right' }}>
+                            <button
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--emerald)',
+                                cursor: 'pointer',
+                                fontSize: '0.82rem',
+                                fontFamily: 'var(--font-label)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                outline: 'none'
+                              }}
+                            >
+                              {isExpanded ? 'Collapse ▲' : 'View Details ▼'}
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={5} style={{ padding: '1.5rem', background: 'rgba(0, 0, 0, 0.2)', borderBottom: '1px solid var(--border)' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+                                {/* Left Side: Metadata */}
+                                <div style={{ borderRight: '1px solid rgba(255,255,255,0.05)', paddingRight: '2rem' }}>
+                                  <h4 style={{ color: 'var(--emerald)', fontSize: '0.8rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Call Metadata</h4>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', fontSize: '0.8rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: 'var(--text-muted)' }}>Call SID:</span>
+                                      <span style={{ color: 'var(--cream)', wordBreak: 'break-all', maxWidth: '65%', textAlign: 'right' }}>{call.callSid}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: 'var(--text-muted)' }}>Stream SID:</span>
+                                      <span style={{ color: 'var(--cream)', wordBreak: 'break-all', maxWidth: '65%', textAlign: 'right' }}>{call.streamSid}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: 'var(--text-muted)' }}>Duration:</span>
+                                      <span style={{ color: 'var(--cream)' }}>{getDuration(call.startedAt, call.endedAt)}</span>
+                                    </div>
+                                    {call.endedAt && (
+                                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-muted)' }}>Ended At:</span>
+                                        <span style={{ color: 'var(--cream)' }}>{new Date(call.endedAt).toLocaleTimeString('en-IN')}</span>
+                                      </div>
+                                    )}
+                                    <div style={{ marginTop: '1rem' }}>
+                                      <Link
+                                        to={`/property/${call.propertyId?._id}`}
+                                        style={{
+                                          display: 'inline-block',
+                                          color: 'var(--emerald)',
+                                          textDecoration: 'none',
+                                          fontSize: '0.78rem',
+                                          fontFamily: 'var(--font-label)',
+                                          border: '1px solid rgba(16,185,129,0.3)',
+                                          borderRadius: '4px',
+                                          padding: '4px 10px',
+                                          background: 'rgba(16,185,129,0.05)'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--emerald-dim)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(16,185,129,0.05)'}
+                                      >
+                                        View Public Property Page →
+                                      </Link>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Right Side: Transcript bubbles */}
+                                <div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <h4 style={{ color: 'var(--emerald)', fontSize: '0.8rem', fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                      Conversation Transcript
+                                    </h4>
+                                    {(call.status === 'in-progress' || call.status === 'initiated') && (
+                                      <span style={{
+                                        fontSize: '0.7rem',
+                                        color: 'var(--emerald-lit)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.3rem',
+                                        fontFamily: 'var(--font-label)'
+                                      }}>
+                                        <span className="pulse-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34D8C4' }} />
+                                        LIVE TRANSCRIBING...
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {detailsLoading && !expandedCallDetails ? (
+                                    <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><div className="spinner" style={{ width: '24px', height: '24px' }} /></div>
+                                  ) : (
+                                    <div style={{ 
+                                      maxHeight: '300px', 
+                                      overflowY: 'auto', 
+                                      paddingRight: '0.5rem', 
+                                      display: 'flex', 
+                                      flexDirection: 'column', 
+                                      gap: '0.65rem' 
+                                    }}>
+                                      {expandedCallDetails?.transcript && expandedCallDetails.transcript.length > 0 ? (
+                                        expandedCallDetails.transcript.map((msg, mIdx) => (
+                                          <div 
+                                            key={mIdx} 
+                                            style={{ 
+                                              display: 'flex', 
+                                              justifyContent: msg.speaker === 'caller' ? 'flex-end' : 'flex-start' 
+                                            }}
+                                          >
+                                            <div style={{
+                                              maxWidth: '80%',
+                                              padding: '0.5rem 0.85rem',
+                                              borderRadius: msg.speaker === 'caller' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                                              background: msg.speaker === 'caller' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                                              color: 'var(--cream)',
+                                              fontSize: '0.8rem',
+                                              lineHeight: 1.45,
+                                              border: msg.speaker === 'caller' ? '1px solid rgba(16,185,129,0.2)' : '1px solid var(--border)',
+                                            }}>
+                                              <span style={{ 
+                                                display: 'block', 
+                                                fontSize: '0.6rem', 
+                                                color: 'var(--text-muted)', 
+                                                marginBottom: '0.15rem', 
+                                                fontFamily: 'var(--font-label)', 
+                                                letterSpacing: '0.05em' 
+                                              }}>
+                                                {msg.speaker === 'caller' ? 'CALLER' : 'ATLAS AGENT'}
+                                              </span>
+                                              {msg.text}
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem' }}>
+                                          No transcript available yet.
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </optgroup>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {callsData.totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Showing page {callsData.page} of {callsData.totalPages} ({callsData.totalCalls} total calls)
+              </span>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  disabled={callsPage === 1}
+                  onClick={() => setCallsPage(prev => Math.max(prev - 1, 1))}
+                  style={{
+                    padding: '0.35rem 0.85rem',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    background: callsPage === 1 ? 'transparent' : 'rgba(255,255,255,0.03)',
+                    color: callsPage === 1 ? 'var(--text-muted)' : 'var(--cream)',
+                    fontSize: '0.75rem',
+                    fontFamily: 'var(--font-label)',
+                    cursor: callsPage === 1 ? 'default' : 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none'
+                  }}
+                  onMouseEnter={e => { if (callsPage > 1) e.currentTarget.style.borderColor = 'var(--emerald)'; }}
+                  onMouseLeave={e => { if (callsPage > 1) e.currentTarget.style.borderColor = 'var(--border)'; }}
+                >
+                  Previous
+                </button>
+                <button
+                  disabled={callsPage === callsData.totalPages}
+                  onClick={() => setCallsPage(prev => Math.min(prev + 1, callsData.totalPages))}
+                  style={{
+                    padding: '0.35rem 0.85rem',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border)',
+                    background: callsPage === callsData.totalPages ? 'transparent' : 'rgba(255,255,255,0.03)',
+                    color: callsPage === callsData.totalPages ? 'var(--text-muted)' : 'var(--cream)',
+                    fontSize: '0.75rem',
+                    fontFamily: 'var(--font-label)',
+                    cursor: callsPage === callsData.totalPages ? 'default' : 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none'
+                  }}
+                  onMouseEnter={e => { if (callsPage < callsData.totalPages) e.currentTarget.style.borderColor = 'var(--emerald)'; }}
+                  onMouseLeave={e => { if (callsPage < callsData.totalPages) e.currentTarget.style.borderColor = 'var(--border)'; }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 }
+
 
 // ─── Property Enquiries list (Max-Heap sorted) ───
 function PropertyEnquiries() {
@@ -625,7 +1110,6 @@ export default function AdminDashboardPage() {
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '5.5rem 2rem 4rem' }}>
         <Routes>
           <Route index element={<DashboardHome search={search} />} />
-          <Route path="add"                   element={<AddPropertyPage />} />
           <Route path="property/:propId"      element={<PropertyEnquiries />} />
           <Route path="enquiry/:enquiryId"    element={<CallDetail />} />
         </Routes>
